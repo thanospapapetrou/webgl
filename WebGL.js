@@ -1,15 +1,23 @@
 class WebGL {
     static VERTEX_SHADER = `
         attribute vec4 aVertexPosition;
+        attribute vec4 aVertexColor;
+
         uniform mat4 uModelViewMatrix;
         uniform mat4 uProjectionMatrix;
-        void main() {
-            gl_Position = uProjectionMatrix * uModelViewMatrix * aVertexPosition;
+
+        varying lowp vec4 vColor;
+
+        void main(void) {
+          gl_Position = uProjectionMatrix * uModelViewMatrix * aVertexPosition;
+          vColor = aVertexColor;
         }
     `;
     static FRAGMENT_SHADER = `
-        void main() {
-            gl_FragColor = vec4(1.0, 1.0, 1.0, 1.0);
+        varying lowp vec4 vColor;
+
+        void main(void) {
+          gl_FragColor = vColor;
         }
     `;
 
@@ -26,11 +34,12 @@ class WebGL {
             program: shaderProgram,
             attribLocations: {
                 vertexPosition: this.#gl.getAttribLocation(shaderProgram, 'aVertexPosition'),
+                vertexColor: this.#gl.getAttribLocation(shaderProgram, 'aVertexColor')
             },
             uniformLocations: {
                 projectionMatrix: this.#gl.getUniformLocation(shaderProgram, 'uProjectionMatrix'),
-                modelViewMatrix: this.#gl.getUniformLocation(shaderProgram, 'uModelViewMatrix'),
-            },
+                modelViewMatrix: this.#gl.getUniformLocation(shaderProgram, 'uModelViewMatrix')
+            }
         };
         const buffers = this.initBuffers();
         this.drawScene(programInfo, buffers);
@@ -64,8 +73,10 @@ class WebGL {
 
     initBuffers() {
         const positionBuffer = this.initPositionBuffer();
+        const colorBuffer = this.initColorBuffer();
         return {
             position: positionBuffer,
+            color: colorBuffer
         };
     }
 
@@ -94,6 +105,7 @@ class WebGL {
         modelViewMatrix, // matrix to translate
         [-0.0, 0.0, -6.0]); // amount to translate
         this.setPositionAttribute(buffers, programInfo);
+        this.setColorAttribute(buffers, programInfo);
         this.#gl.useProgram(programInfo.program);
         this.#gl.uniformMatrix4fv(programInfo.uniformLocations.projectionMatrix, false, projectionMatrix);
         this.#gl.uniformMatrix4fv(programInfo.uniformLocations.modelViewMatrix, false, modelViewMatrix);
@@ -119,5 +131,48 @@ class WebGL {
             offset,
         );
         this.#gl.enableVertexAttribArray(programInfo.attribLocations.vertexPosition);
+    }
+
+    initColorBuffer() {
+        const colors = [
+            1.0,
+            1.0,
+            1.0,
+            1.0, // white
+            1.0,
+            0.0,
+            0.0,
+            1.0, // red
+            0.0,
+            1.0,
+            0.0,
+            1.0, // green
+            0.0,
+            0.0,
+            1.0,
+            1.0, // blue
+        ];
+        const colorBuffer = this.#gl.createBuffer();
+        this.#gl.bindBuffer(this.#gl.ARRAY_BUFFER, colorBuffer);
+        this.#gl.bufferData(this.#gl.ARRAY_BUFFER, new Float32Array(colors), this.#gl.STATIC_DRAW);
+        return colorBuffer;
+    }
+
+    setColorAttribute(buffers, programInfo) {
+      const numComponents = 4;
+      const type = this.#gl.FLOAT;
+      const normalize = false;
+      const stride = 0;
+      const offset = 0;
+      this.#gl.bindBuffer(this.#gl.ARRAY_BUFFER, buffers.color);
+      this.#gl.vertexAttribPointer(
+        programInfo.attribLocations.vertexColor,
+        numComponents,
+        type,
+        normalize,
+        stride,
+        offset
+      );
+      this.#gl.enableVertexAttribArray(programInfo.attribLocations.vertexColor);
     }
 }
