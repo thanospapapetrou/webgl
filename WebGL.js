@@ -1,4 +1,6 @@
 class WebGL {
+    static #MS_PER_S = 1000;
+    static #VR = 2 * Math.PI; // 1 Hz
     static VERTEX_SHADER = `
         attribute vec4 aVertexPosition;
         attribute vec4 aVertexColor;
@@ -24,7 +26,6 @@ class WebGL {
     #gl;
     #time;
     #rotation;
-    #dt;
     #programInfo;
     #buffers;
 
@@ -37,7 +38,6 @@ class WebGL {
         this.#gl = gl;
         this.#time = 0;
         this.#rotation = 0;
-        this.#dt = 0;
         const shaderProgram = this.initShaderProgram();
         this.#programInfo = {
             program: shaderProgram,
@@ -51,7 +51,6 @@ class WebGL {
             }
         };
         this.#buffers = this.initBuffers();
-        this.drawScene();
     }
 
     initShaderProgram() {
@@ -186,12 +185,11 @@ class WebGL {
       this.#gl.enableVertexAttribArray(this.#programInfo.attribLocations.vertexColor);
     }
 
-    render(now) {
-        now *= 0.001; // convert to seconds
-        this.#dt = now - this.#time;
-        this.time = now;
+    render(time) {
+        const dt = time - this.#time;
+        this.#time = time;
+        this.#rotation += WebGL.#VR * dt / WebGL.#MS_PER_S;
         this.drawScene();
-        this.#rotation += this.#dt;
-      requestAnimationFrame(this.render.bind(this));
+        requestAnimationFrame(this.render.bind(this));
     }
 }
