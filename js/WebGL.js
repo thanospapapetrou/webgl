@@ -11,6 +11,7 @@ class WebGL {
     static #MS_PER_S = 1000;
     static #SHADER_FRAGMENT = './glsl/fragment.glsl';
     static #SHADER_VERTEX = './glsl/vertex.glsl';
+    static #UNIFORMS = ['projection', 'modelView'];
     static #VR = 0.5 * Math.PI; // 0.25 Hz
     static #Z_FAR = 100.0;
     static #Z_NEAR = 0.1;
@@ -18,7 +19,7 @@ class WebGL {
     #gl;
     #time;
     #rotation;
-    #programInfo;
+    #program;
     #buffers;
 
     static main() {
@@ -29,16 +30,12 @@ class WebGL {
         this.#gl = gl;
         this.#time = 0;
         this.#rotation = 0.0;
-        this.#link(WebGL.#SHADER_VERTEX, WebGL.#SHADER_FRAGMENT).then((program) => {
-            this.#programInfo = {
+        this.#link(WebGL.#SHADER_VERTEX, WebGL.#SHADER_FRAGMENT, WebGL.#UNIFORMS).then((program) => {
+            this.#program = {
                 program: program,
                 attribLocations: {
                     vertexPosition: this.#gl.getAttribLocation(program, 'aVertexPosition'),
                     vertexColor: this.#gl.getAttribLocation(program, 'aVertexColor')
-                },
-                uniformLocations: {
-                    projectionMatrix: this.#gl.getUniformLocation(program, 'uProjectionMatrix'),
-                    modelViewMatrix: this.#gl.getUniformLocation(program, 'uModelViewMatrix')
                 }
             };
             this.#load('./models/cube.json').then((response) => response.json()).then((cube) => {
@@ -52,7 +49,7 @@ class WebGL {
         });
     }
 
-    #link(vertex, fragment) {
+    #link(vertex, fragment, uniforms) {
         return this.#compile(vertex, this.#gl.VERTEX_SHADER).then((vertexShader) => {
             return this.#compile(fragment, this.#gl.FRAGMENT_SHADER).then((fragmentShader) => {
                 const program = this.#gl.createProgram();
@@ -63,6 +60,17 @@ class WebGL {
                     this.#gl.deleteProgram(program);
                     throw new Error(WebGL.ERROR_LINKING(vertex, fragment, this.#gl.getProgramInfoLog(program)));
                 }
+                program.uniforms = {};
+                const gl = this.#gl;
+                for (let uniform of uniforms) {
+                    const location = this.#gl.getUniformLocation(program, uniform);
+                    Object.defineProperty(program.uniforms, uniform, {
+                        set(uniform) {
+                            gl.uniformMatrix4fv(location, false, uniform);
+                        }
+                    });
+                }
+                program.attributes = {};
                 return program;
             });
         });
@@ -97,27 +105,23 @@ class WebGL {
         });
     }
 
-    initBuffers() {
-
-    }
-
     drawScene() {
         this.#gl.clearColor(...WebGL.#CLEAR_COLOR);
         this.#gl.clearDepth(WebGL.#CLEAR_DEPTH);
         this.#gl.depthFunc(this.#gl.LEQUAL);
         this.#gl.enable(this.#gl.DEPTH_TEST);
         this.#gl.clear(this.#gl.COLOR_BUFFER_BIT | this.#gl.DEPTH_BUFFER_BIT);
-        this.#gl.useProgram(this.#programInfo.program);
+        this.#gl.useProgram(this.#program.program);
         const projection = mat4.create();
         mat4.perspective(projection, WebGL.#FIELD_OF_VIEW, this.#gl.canvas.clientWidth / this.#gl.canvas.clientHeight,
                 WebGL.#Z_NEAR, WebGL.#Z_FAR);
-        this.#gl.uniformMatrix4fv(this.#programInfo.uniformLocations.projectionMatrix, false, projection);
+        this.#program.program.uniforms.projection = projection;
         const modelView = mat4.create();
         mat4.translate(modelView, modelView, [-0.0, 0.0, -6.0]);
         mat4.rotate(modelView, modelView, this.#rotation, WebGL.#AXIS_Z);
         mat4.rotate(modelView, modelView, this.#rotation * 0.7, WebGL.#AXIS_Y);
         mat4.rotate(modelView, modelView, this.#rotation * 0.3, WebGL.#AXIS_X);
-        this.#gl.uniformMatrix4fv(this.#programInfo.uniformLocations.modelViewMatrix, false, modelView);
+        this.#program.program.uniforms.modelView = modelView;
         this.setPositionAttribute();
         this.setColorAttribute();
         this.#gl.bindBuffer(this.#gl.ELEMENT_ARRAY_BUFFER, this.#buffers.indices);
@@ -127,14 +131,14 @@ class WebGL {
 
     setPositionAttribute() {
         this.#gl.bindBuffer(this.#gl.ARRAY_BUFFER, this.#buffers.positions);
-        this.#gl.vertexAttribPointer(this.#programInfo.attribLocations.vertexPosition, 3, this.#gl.FLOAT, false, 0, 0);
-        this.#gl.enableVertexAttribArray(this.#programInfo.attribLocations.vertexPosition);
+        this.#gl.vertexAttribPointer(this.#program.attribLocations.vertexPosition, 3, this.#gl.FLOAT, false, 0, 0);
+        this.#gl.enableVertexAttribArray(this.#program.attribLocations.vertexPosition);
     }
 
     setColorAttribute() {
       this.#gl.bindBuffer(this.#gl.ARRAY_BUFFER, this.#buffers.colors);
-      this.#gl.vertexAttribPointer(this.#programInfo.attribLocations.vertexColor, 4, this.#gl.FLOAT, false, 0, 0);
-      this.#gl.enableVertexAttribArray(this.#programInfo.attribLocations.vertexColor);
+      this.#gl.vertexAttribPointer(this.#program.attribLocations.vertexColor, 4, this.#gl.FLOAT, false, 0, 0);
+      this.#gl.enableVertexAttribArray(this.#program.attribLocations.vertexColor);
     }
 
     render(time) {
