@@ -1,4 +1,5 @@
 class WebGL {
+    static #ATTRIBUTES = {'position': 3, 'color': 4};
     static #AXIS_X = [1.0, 0.0, 0.0];
     static #AXIS_Y = [0.0, 1.0, 0.0];
     static #AXIS_Z = [0.0, 0.0, 1.0];
@@ -30,7 +31,7 @@ class WebGL {
         this.#gl = gl;
         this.#time = 0;
         this.#rotation = 0.0;
-        this.#link(WebGL.#SHADER_VERTEX, WebGL.#SHADER_FRAGMENT, WebGL.#UNIFORMS).then((program) => {
+        this.#link(WebGL.#SHADER_VERTEX, WebGL.#SHADER_FRAGMENT, WebGL.#UNIFORMS, WebGL.#ATTRIBUTES).then((program) => {
             this.#program = {
                 program: program,
                 attribLocations: {
@@ -49,7 +50,7 @@ class WebGL {
         });
     }
 
-    #link(vertex, fragment, uniforms) {
+    #link(vertex, fragment, uniforms, attributes) {
         return this.#compile(vertex, this.#gl.VERTEX_SHADER).then((vertexShader) => {
             return this.#compile(fragment, this.#gl.FRAGMENT_SHADER).then((fragmentShader) => {
                 const program = this.#gl.createProgram();
@@ -72,6 +73,17 @@ class WebGL {
                     });
                 }
                 program.attributes = {};
+                for (let attribute of Object.keys(attributes)) {
+                    const location = this.#gl.getAttribLocation(program, attribute);
+                    const size = attributes[attribute];
+                    Object.defineProperty(program.attributes, attribute, {
+                        set(attribute) {
+                            gl.bindBuffer(gl.ARRAY_BUFFER, attribute);
+                            gl.vertexAttribPointer(location, size, gl.FLOAT, false, 0, 0);
+                            gl.enableVertexAttribArray(location);
+                        }
+                    });
+                }
                 return program;
             });
         });
@@ -124,23 +136,11 @@ class WebGL {
         mat4.rotate(modelView, modelView, this.#rotation * 0.7, WebGL.#AXIS_Y);
         mat4.rotate(modelView, modelView, this.#rotation * 0.3, WebGL.#AXIS_X);
         this.#program.program.uniforms.modelView = modelView;
-        this.setPositionAttribute();
-        this.setColorAttribute();
+        this.#program.program.attributes.position = this.#buffers.positions;
+        this.#program.program.attributes.color = this.#buffers.colors;
         this.#gl.bindBuffer(this.#gl.ELEMENT_ARRAY_BUFFER, this.#buffers.indices);
         const vertexCount = 36;
         this.#gl.drawElements(this.#gl.TRIANGLES, vertexCount, this.#gl.UNSIGNED_SHORT, 0);
-    }
-
-    setPositionAttribute() {
-        this.#gl.bindBuffer(this.#gl.ARRAY_BUFFER, this.#buffers.positions);
-        this.#gl.vertexAttribPointer(this.#program.attribLocations.vertexPosition, 3, this.#gl.FLOAT, false, 0, 0);
-        this.#gl.enableVertexAttribArray(this.#program.attribLocations.vertexPosition);
-    }
-
-    setColorAttribute() {
-      this.#gl.bindBuffer(this.#gl.ARRAY_BUFFER, this.#buffers.colors);
-      this.#gl.vertexAttribPointer(this.#program.attribLocations.vertexColor, 4, this.#gl.FLOAT, false, 0, 0);
-      this.#gl.enableVertexAttribArray(this.#program.attribLocations.vertexColor);
     }
 
     render(time) {
