@@ -1,27 +1,11 @@
 class WebGL {
+    static #ERROR_COMPILING = (url, info) => `Error compiling ${url}: ${info}`;
+    static #ERROR_LINKING = (vertex, fragment, info) => `Error linking ${vertex} ${fragment}: ${info}`;
+    static #ERROR_LOADING = (url, status) => `Error loading ${url}: HTTP status ${status}`;
     static #MS_PER_S = 1000;
+    static #SHADER_FRAGMENT = './glsl/fragment.glsl';
+    static #SHADER_VERTEX = './glsl/vertex.glsl';
     static #VR = 0.5 * Math.PI; // 0.25 Hz
-    static VERTEX_SHADER = `
-        attribute vec4 aVertexPosition;
-        attribute vec4 aVertexColor;
-
-        uniform mat4 uModelViewMatrix;
-        uniform mat4 uProjectionMatrix;
-
-        varying lowp vec4 vColor;
-
-        void main(void) {
-          gl_Position = uProjectionMatrix * uModelViewMatrix * aVertexPosition;
-          vColor = aVertexColor;
-        }
-    `;
-    static FRAGMENT_SHADER = `
-        varying lowp vec4 vColor;
-
-        void main(void) {
-          gl_FragColor = vColor;
-        }
-    `;
 
     #gl;
     #time;
@@ -31,52 +15,66 @@ class WebGL {
 
     static main() {
         const webGl = new WebGL(document.querySelector('canvas#gl').getContext('webgl'));
-        requestAnimationFrame(webGl.render.bind(webGl));
     }
 
     constructor(gl) {
         this.#gl = gl;
         this.#time = 0;
         this.#rotation = 0;
-        const shaderProgram = this.initShaderProgram();
-        this.#programInfo = {
-            program: shaderProgram,
-            attribLocations: {
-                vertexPosition: this.#gl.getAttribLocation(shaderProgram, 'aVertexPosition'),
-                vertexColor: this.#gl.getAttribLocation(shaderProgram, 'aVertexColor')
-            },
-            uniformLocations: {
-                projectionMatrix: this.#gl.getUniformLocation(shaderProgram, 'uProjectionMatrix'),
-                modelViewMatrix: this.#gl.getUniformLocation(shaderProgram, 'uModelViewMatrix')
+        this.#link(WebGL.#SHADER_VERTEX, WebGL.#SHADER_FRAGMENT).then((program) => {
+            const shaderProgram = program;
+            this.#programInfo = {
+                program: shaderProgram,
+                attribLocations: {
+                    vertexPosition: this.#gl.getAttribLocation(shaderProgram, 'aVertexPosition'),
+                    vertexColor: this.#gl.getAttribLocation(shaderProgram, 'aVertexColor')
+                },
+                uniformLocations: {
+                    projectionMatrix: this.#gl.getUniformLocation(shaderProgram, 'uProjectionMatrix'),
+                    modelViewMatrix: this.#gl.getUniformLocation(shaderProgram, 'uModelViewMatrix')
+                }
+            };
+            this.#buffers = this.initBuffers();
+            requestAnimationFrame(this.render.bind(this));
+        });
+    }
+
+    #link(vertex, fragment) {
+        return this.#compile(vertex, this.#gl.VERTEX_SHADER).then((vertexShader) => {
+            return this.#compile(fragment, this.#gl.FRAGMENT_SHADER).then((fragmentShader) => {
+                const program = this.#gl.createProgram();
+                this.#gl.attachShader(program, vertexShader);
+                this.#gl.attachShader(program, fragmentShader);
+                this.#gl.linkProgram(program);
+                if (!this.#gl.getProgramParameter(program, this.#gl.LINK_STATUS)) {
+                    this.#gl.deleteProgram(program);
+                    throw new Error(WebGL.ERROR_LINKING(vertex, fragment, this.#gl.getProgramInfoLog(program)));
+                }
+                return program;
+            });
+        });
+    }
+
+    #compile(url, type) {
+        return this.#load(url).then((source) => {
+            const shader = this.#gl.createShader(type);
+            this.#gl.shaderSource(shader, source);
+            this.#gl.compileShader(shader);
+            if (!this.#gl.getShaderParameter(shader, this.#gl.COMPILE_STATUS)) {
+                this.#gl.deleteShader(shader);
+                throw new Error(WebGL.ERROR_COMPILING(url, this.#gl.getShaderInfoLog(shader)))
             }
-        };
-        this.#buffers = this.initBuffers();
+            return shader;
+        });
     }
 
-    initShaderProgram() {
-        const vertexShader = this.loadShader(this.#gl.VERTEX_SHADER, WebGL.VERTEX_SHADER);
-        const fragmentShader = this.loadShader(this.#gl.FRAGMENT_SHADER, WebGL.FRAGMENT_SHADER);
-        const shaderProgram = this.#gl.createProgram();
-        this.#gl.attachShader(shaderProgram, vertexShader);
-        this.#gl.attachShader(shaderProgram, fragmentShader);
-        this.#gl.linkProgram(shaderProgram);
-        if (!this.#gl.getProgramParameter(shaderProgram, this.#gl.LINK_STATUS)) {
-            alert(`Unable to initialize the shader program: ${this.#gl.getProgramInfoLog(shaderProgram)}`);
-            return null;
-        }
-        return shaderProgram;
-    }
-
-    loadShader(type, source) {
-        const shader = this.#gl.createShader(type);
-        this.#gl.shaderSource(shader, source);
-        this.#gl.compileShader(shader);
-        if (!this.#gl.getShaderParameter(shader, this.#gl.COMPILE_STATUS)) {
-            alert(`An error occurred compiling the shaders: ${this.#gl.getShaderInfoLog(shader)}`);
-            this.#gl.deleteShader(shader);
-            return null;
-        }
-        return shader;
+    #load(url) {
+        return fetch(url).then((response) => {
+            if (!response.ok) {
+                throw new Error(WebGL.ERROR_LOADING(url, response.status));
+            }
+            return response.text();
+        });
     }
 
     initBuffers() {
