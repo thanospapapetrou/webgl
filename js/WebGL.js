@@ -57,8 +57,9 @@ class WebGL {
                 this.#gl.attachShader(program, fragmentShader);
                 this.#gl.linkProgram(program);
                 if (!this.#gl.getProgramParameter(program, this.#gl.LINK_STATUS)) {
+                    const info = this.#gl.getProgramInfoLog(program);
                     this.#gl.deleteProgram(program);
-                    throw new Error(WebGL.ERROR_LINKING(vertex, fragment, this.#gl.getProgramInfoLog(program)));
+                    throw new Error(WebGL.#ERROR_LINKING(vertex, fragment, info));
                 }
                 program.uniforms = {};
                 const gl = this.#gl;
@@ -82,8 +83,9 @@ class WebGL {
             this.#gl.shaderSource(shader, source);
             this.#gl.compileShader(shader);
             if (!this.#gl.getShaderParameter(shader, this.#gl.COMPILE_STATUS)) {
+                const info = this.#gl.getShaderInfoLog(shader);
                 this.#gl.deleteShader(shader);
-                throw new Error(WebGL.ERROR_COMPILING(url, this.#gl.getShaderInfoLog(shader)))
+                throw new Error(WebGL.#ERROR_COMPILING(url, info))
             }
             return shader;
         });
@@ -99,7 +101,7 @@ class WebGL {
     #load(url) {
         return fetch(url).then((response) => {
             if (!response.ok) {
-                throw new Error(WebGL.ERROR_LOADING(url, response.status));
+                throw new Error(WebGL.#ERROR_LOADING(url, response.status));
             }
             return response;
         });
