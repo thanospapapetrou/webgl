@@ -32,13 +32,7 @@ class WebGL {
         this.#time = 0;
         this.#rotation = 0.0;
         this.#link(WebGL.#SHADER_VERTEX, WebGL.#SHADER_FRAGMENT, WebGL.#UNIFORMS, WebGL.#ATTRIBUTES).then((program) => {
-            this.#program = {
-                program: program,
-                attribLocations: {
-                    vertexPosition: this.#gl.getAttribLocation(program, 'aVertexPosition'),
-                    vertexColor: this.#gl.getAttribLocation(program, 'aVertexColor')
-                }
-            };
+            this.#program = program;
             this.#load('./models/cube.json').then((response) => response.json()).then((cube) => {
                 this.#buffers = {
                     positions: this.#createBuffer(this.#gl.ARRAY_BUFFER, new Float32Array(cube.positions)),
@@ -125,19 +119,19 @@ class WebGL {
         this.#gl.depthFunc(this.#gl.LEQUAL);
         this.#gl.enable(this.#gl.DEPTH_TEST);
         this.#gl.clear(this.#gl.COLOR_BUFFER_BIT | this.#gl.DEPTH_BUFFER_BIT);
-        this.#gl.useProgram(this.#program.program);
+        this.#gl.useProgram(this.#program);
         const projection = mat4.create();
         mat4.perspective(projection, WebGL.#FIELD_OF_VIEW, this.#gl.canvas.clientWidth / this.#gl.canvas.clientHeight,
                 WebGL.#Z_NEAR, WebGL.#Z_FAR);
-        this.#program.program.uniforms.projection = projection;
+        this.#program.uniforms.projection = projection;
         const modelView = mat4.create();
         mat4.translate(modelView, modelView, [-0.0, 0.0, -6.0]);
         mat4.rotate(modelView, modelView, this.#rotation, WebGL.#AXIS_Z);
         mat4.rotate(modelView, modelView, this.#rotation * 0.7, WebGL.#AXIS_Y);
         mat4.rotate(modelView, modelView, this.#rotation * 0.3, WebGL.#AXIS_X);
-        this.#program.program.uniforms.modelView = modelView;
-        this.#program.program.attributes.position = this.#buffers.positions;
-        this.#program.program.attributes.color = this.#buffers.colors;
+        this.#program.uniforms.modelView = modelView;
+        this.#program.attributes.position = this.#buffers.positions;
+        this.#program.attributes.color = this.#buffers.colors;
         this.#gl.bindBuffer(this.#gl.ELEMENT_ARRAY_BUFFER, this.#buffers.indices);
         const vertexCount = 36;
         this.#gl.drawElements(this.#gl.TRIANGLES, vertexCount, this.#gl.UNSIGNED_SHORT, 0);
