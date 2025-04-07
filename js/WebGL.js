@@ -29,6 +29,12 @@ class WebGL {
     #time;
 
     static main() {
+        // TODO WebGL 2
+        // VAOs
+        // draw multiple objects
+        // keyboard events
+        // resize
+        // back face culling
         WebGL.#load(WebGL.#SHADER_VERTEX).then((response) => response.text()).then((vertex) => {
             WebGL.#load(WebGL.#SHADER_FRAGMENT).then((response) => response.text()).then((fragment) => {
                 WebGL.#load(WebGL.#MODEL).then((response) => response.json()).then((cube) => {
@@ -61,6 +67,34 @@ class WebGL {
         };
         this.#rotation = 0.0;
         this.#time = 0;
+        this.#gl.clearColor(...WebGL.#CLEAR_COLOR);
+        this.#gl.clearDepth(WebGL.#CLEAR_DEPTH);
+        this.#gl.depthFunc(this.#gl.LEQUAL);
+        this.#gl.enable(this.#gl.DEPTH_TEST);
+    }
+
+    render(time) {
+        const dt = time - this.#time;
+        this.#time = time;
+        this.#gl.clear(this.#gl.COLOR_BUFFER_BIT | this.#gl.DEPTH_BUFFER_BIT);
+        this.#gl.useProgram(this.#program);
+        const projection = mat4.create();
+        mat4.perspective(projection, WebGL.#FIELD_OF_VIEW, this.#gl.canvas.clientWidth / this.#gl.canvas.clientHeight,
+                WebGL.#Z_NEAR, WebGL.#Z_FAR);
+        this.#uniforms.projection = projection;
+        const modelView = mat4.create();
+        mat4.translate(modelView, modelView, [-0.0, 0.0, -6.0]);
+        this.#rotation += WebGL.#VR * dt / WebGL.#MS_PER_S;
+        mat4.rotate(modelView, modelView, this.#rotation, WebGL.#AXIS_Z);
+        mat4.rotate(modelView, modelView, this.#rotation * 0.7, WebGL.#AXIS_Y);
+        mat4.rotate(modelView, modelView, this.#rotation * 0.3, WebGL.#AXIS_X);
+        this.#uniforms.modelView = modelView;
+        this.#attributes.position = this.#buffers.positions;
+        this.#attributes.color = this.#buffers.colors;
+        this.#gl.bindBuffer(this.#gl.ELEMENT_ARRAY_BUFFER, this.#buffers.indices);
+        const vertexCount = 36;
+        this.#gl.drawElements(this.#gl.TRIANGLES, vertexCount, this.#gl.UNSIGNED_SHORT, 0);
+        requestAnimationFrame(this.render.bind(this));
     }
 
     #link(vertex, fragment) {
@@ -124,37 +158,5 @@ class WebGL {
         this.#gl.bindBuffer(type, buffer);
         this.#gl.bufferData(type, data, this.#gl.STATIC_DRAW);
         return buffer;
-    }
-
-    drawScene() {
-        this.#gl.clearColor(...WebGL.#CLEAR_COLOR);
-        this.#gl.clearDepth(WebGL.#CLEAR_DEPTH);
-        this.#gl.depthFunc(this.#gl.LEQUAL);
-        this.#gl.enable(this.#gl.DEPTH_TEST);
-        this.#gl.clear(this.#gl.COLOR_BUFFER_BIT | this.#gl.DEPTH_BUFFER_BIT);
-        this.#gl.useProgram(this.#program);
-        const projection = mat4.create();
-        mat4.perspective(projection, WebGL.#FIELD_OF_VIEW, this.#gl.canvas.clientWidth / this.#gl.canvas.clientHeight,
-                WebGL.#Z_NEAR, WebGL.#Z_FAR);
-        this.#uniforms.projection = projection;
-        const modelView = mat4.create();
-        mat4.translate(modelView, modelView, [-0.0, 0.0, -6.0]);
-        mat4.rotate(modelView, modelView, this.#rotation, WebGL.#AXIS_Z);
-        mat4.rotate(modelView, modelView, this.#rotation * 0.7, WebGL.#AXIS_Y);
-        mat4.rotate(modelView, modelView, this.#rotation * 0.3, WebGL.#AXIS_X);
-        this.#uniforms.modelView = modelView;
-        this.#attributes.position = this.#buffers.positions;
-        this.#attributes.color = this.#buffers.colors;
-        this.#gl.bindBuffer(this.#gl.ELEMENT_ARRAY_BUFFER, this.#buffers.indices);
-        const vertexCount = 36;
-        this.#gl.drawElements(this.#gl.TRIANGLES, vertexCount, this.#gl.UNSIGNED_SHORT, 0);
-    }
-
-    render(time) {
-        const dt = time - this.#time;
-        this.#time = time;
-        this.#rotation += WebGL.#VR * dt / WebGL.#MS_PER_S;
-        this.drawScene();
-        requestAnimationFrame(this.render.bind(this));
     }
 }
