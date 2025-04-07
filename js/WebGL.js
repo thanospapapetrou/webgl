@@ -35,6 +35,7 @@ class WebGL {
         // keyboard events
         // resize
         // back face culling
+        // wireframes
         WebGL.#load(WebGL.#SHADER_VERTEX).then((response) => response.text()).then((vertex) => {
             WebGL.#load(WebGL.#SHADER_FRAGMENT).then((response) => response.text()).then((fragment) => {
                 WebGL.#load(WebGL.#MODEL).then((response) => response.json()).then((cube) => {
