@@ -5,11 +5,11 @@ class WebGL {
     static #AXIS_Z = [0.0, 0.0, 1.0];
     static #CLEAR_COLOR = [0.0, 0.0, 0.0, 1.0]; // black
     static #CLEAR_DEPTH = 1.0;
-    static #CONTEXT = 'webgl';
+    static #CONTEXT = 'webgl2';
     static #ERROR_COMPILING = (type, info) => `Error compiling ${(type == WebGLRenderingContext.VERTEX_SHADER) ? 'vertex' : 'fragment'} shader: ${info}`;
     static #ERROR_LINKING = (info) => `Error linking program: ${info}`;
     static #ERROR_LOADING = (url, status) => `Error loading ${url}: HTTP status ${status}`;
-    static #FIELD_OF_VIEW = 0.25 * Math.PI; // 45 deg
+    static #FIELD_OF_VIEW = 0.25 * Math.PI; // π/4
     static #MS_PER_S = 1000;
     static #MODEL = './models/cube.json';
     static #SELECTOR_CANVAS = 'canvas#gl';
@@ -34,8 +34,8 @@ class WebGL {
         // draw multiple objects
         // keyboard events
         // resize
-        // back face culling
-        // wireframes
+        // textures
+        // light
         WebGL.#load(WebGL.#SHADER_VERTEX).then((response) => response.text()).then((vertex) => {
             WebGL.#load(WebGL.#SHADER_FRAGMENT).then((response) => response.text()).then((fragment) => {
                 WebGL.#load(WebGL.#MODEL).then((response) => response.json()).then((cube) => {
@@ -82,9 +82,10 @@ class WebGL {
         const projection = mat4.create();
         mat4.perspective(projection, WebGL.#FIELD_OF_VIEW, this.#gl.canvas.clientWidth / this.#gl.canvas.clientHeight,
                 WebGL.#Z_NEAR, WebGL.#Z_FAR);
+        mat4.translate(projection, projection, [0.0, 0.0, -10.0]);
         this.#uniforms.projection = projection;
         const modelView = mat4.create();
-        mat4.translate(modelView, modelView, [-0.0, 0.0, -6.0]);
+        mat4.translate(modelView, modelView, [0.0, 0.0, 0.0]);
         this.#rotation += WebGL.#VR * dt / WebGL.#MS_PER_S;
         mat4.rotate(modelView, modelView, this.#rotation, WebGL.#AXIS_Z);
         mat4.rotate(modelView, modelView, this.#rotation * 0.7, WebGL.#AXIS_Y);
