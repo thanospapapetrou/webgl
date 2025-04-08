@@ -1,3 +1,5 @@
+'use strict';
+
 class WebGL {
     static #ATTRIBUTES = {'position': 3, 'color': 4};
     static #AXIS_X = [1.0, 0.0, 0.0];
@@ -9,7 +11,7 @@ class WebGL {
     static #ERROR_COMPILING = (type, info) => `Error compiling ${(type == WebGLRenderingContext.VERTEX_SHADER) ? 'vertex' : 'fragment'} shader: ${info}`;
     static #ERROR_LINKING = (info) => `Error linking program: ${info}`;
     static #ERROR_LOADING = (url, status) => `Error loading ${url}: HTTP status ${status}`;
-    static #FIELD_OF_VIEW = 0.25 * Math.PI; // π/4
+    static #FIELD_OF_VIEW = 0.5 * Math.PI; // π/2
     static #MS_PER_S = 1000;
     static #MODEL = './models/cube.json';
     static #SELECTOR_CANVAS = 'canvas#gl';
@@ -29,9 +31,7 @@ class WebGL {
     #time;
 
     static main() {
-        // TODO WebGL 2
         // VAOs
-        // draw multiple objects
         // keyboard events
         // resize
         // textures
@@ -82,20 +82,31 @@ class WebGL {
         const projection = mat4.create();
         mat4.perspective(projection, WebGL.#FIELD_OF_VIEW, this.#gl.canvas.clientWidth / this.#gl.canvas.clientHeight,
                 WebGL.#Z_NEAR, WebGL.#Z_FAR);
-        mat4.translate(projection, projection, [0.0, 0.0, -10.0]);
         this.#uniforms.projection = projection;
-        const modelView = mat4.create();
-        mat4.translate(modelView, modelView, [0.0, 0.0, 0.0]);
-        this.#rotation += WebGL.#VR * dt / WebGL.#MS_PER_S;
-        mat4.rotate(modelView, modelView, this.#rotation, WebGL.#AXIS_Z);
-        mat4.rotate(modelView, modelView, this.#rotation * 0.7, WebGL.#AXIS_Y);
-        mat4.rotate(modelView, modelView, this.#rotation * 0.3, WebGL.#AXIS_X);
-        this.#uniforms.modelView = modelView;
+//        const modelView = mat4.create();
+//        mat4.translate(modelView, modelView, [0.0, 0.0, -10.0]);
+//        this.#rotation += WebGL.#VR * dt / WebGL.#MS_PER_S;
+//        mat4.rotate(modelView, modelView, this.#rotation, WebGL.#AXIS_Z);
+//        mat4.rotate(modelView, modelView, this.#rotation * 0.7, WebGL.#AXIS_Y);
+//        mat4.rotate(modelView, modelView, this.#rotation * 0.3, WebGL.#AXIS_X);
+//        this.#uniforms.modelView = modelView;
         this.#attributes.position = this.#buffers.positions;
         this.#attributes.color = this.#buffers.colors;
         this.#gl.bindBuffer(this.#gl.ELEMENT_ARRAY_BUFFER, this.#buffers.indices);
         const vertexCount = 36;
-        this.#gl.drawElements(this.#gl.TRIANGLES, vertexCount, this.#gl.UNSIGNED_SHORT, 0);
+        for (let i = 0; i < 5; i++) {
+            for (let j = 0; j < 5; j++) {
+                const modelView = mat4.create();
+                mat4.translate(modelView, modelView, [4 * i, 3 * j, -25.0]);
+                this.#rotation += WebGL.#VR * dt / WebGL.#MS_PER_S;
+                mat4.rotate(modelView, modelView, this.#rotation * 0.01 * (i + 1), WebGL.#AXIS_Z);
+                mat4.rotate(modelView, modelView, this.#rotation * 0.02 * (j + 1), WebGL.#AXIS_Y);
+                mat4.rotate(modelView, modelView, this.#rotation * 0.03, WebGL.#AXIS_X);
+                this.#uniforms.modelView = modelView;
+                this.#gl.drawElements(this.#gl.TRIANGLES, vertexCount, this.#gl.UNSIGNED_SHORT, 0);
+            }
+        }
+//        this.#gl.drawElements(this.#gl.TRIANGLES, vertexCount, this.#gl.UNSIGNED_SHORT, 0);
         requestAnimationFrame(this.render.bind(this));
     }
 
