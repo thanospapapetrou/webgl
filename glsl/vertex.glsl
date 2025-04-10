@@ -1,7 +1,7 @@
 #version 300 es
 
-uniform mat4 modelView;
 uniform mat4 projection;
+uniform mat4 modelView;
 
 in vec4 position;
 in vec4 color;

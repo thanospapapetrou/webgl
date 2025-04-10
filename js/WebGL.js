@@ -8,31 +8,48 @@ class WebGL {
     static #CLEAR_COLOR = [0.0, 0.0, 0.0, 1.0]; // black
     static #CLEAR_DEPTH = 1.0;
     static #CONTEXT = 'webgl2';
+    static #DISTANCE_MIN = 1.0; // 1 m
+    static #DISTANCE_MAX = 100.0; // 100 m
     static #ERROR_COMPILING = (type, info) => `Error compiling ${(type == WebGLRenderingContext.VERTEX_SHADER) ? 'vertex' : 'fragment'} shader: ${info}`;
     static #ERROR_LINKING = (info) => `Error linking program: ${info}`;
     static #ERROR_LOADING = (url, status) => `Error loading ${url}: HTTP status ${status}`;
     static #FIELD_OF_VIEW = 0.5 * Math.PI; // π/2
+    static #FORMAT_ANGLE = (angle) => `${angle} rad (${angle * 180 / Math.PI} °)`;
+    static #FORMAT_DISTANCE = (distance) => `${distance} m`;
     static #MS_PER_S = 1000;
     static #MODEL = './models/cube.json';
+    static #SELECTOR_AZIMUTH = 'span#azimuth';
     static #SELECTOR_CANVAS = 'canvas#gl';
+    static #SELECTOR_DISTANCE = 'span#distance';
+    static #SELECTOR_ELEVATION = 'span#elevation';
+    static #SELECTOR_FPS = 'span#fps';
     static #SHADER_FRAGMENT = './glsl/fragment.glsl';
     static #SHADER_VERTEX = './glsl/vertex.glsl';
     static #UNIFORMS = ['projection', 'modelView'];
+    static #VELOCITY_AZIMUTH = 0.25 * Math.PI; // 0.125 Hz
+    static #VELOCITY_DISTANCE = 10.0; // 1o m/s
+    static #VELOCITY_ELEVATION = 0.25 * Math.PI; // 0.125 Hz
     static #VR = 0.5 * Math.PI; // 0.25 Hz
-    static #Z_FAR = 100.0;
-    static #Z_NEAR = 0.1;
+    static #Z_FAR = 200.0; // 100 m
+    static #Z_NEAR = 0.1; // 0.1 m
 
     #gl;
     #program;
     #uniforms;
     #attributes;
     #buffers;
+    #azimuth;
+    #elevation;
+    #distance;
+    #velocityAzimuth;
+    #velocityElevation;
+    #velocityDistance;
     #rotation;
     #time;
 
     static main() {
         // VAOs
-        // keyboard events
+        // split into renderer and renderable
         // resize
         // textures
         // light
@@ -66,16 +83,54 @@ class WebGL {
             colors: this.#createBuffer(this.#gl.ARRAY_BUFFER, new Float32Array(model.colors)),
             indices: this.#createBuffer(this.#gl.ELEMENT_ARRAY_BUFFER, new Uint16Array(model.indices))
         };
+        this.#azimuth = 0.0;
+        this.#elevation = 0.0;
+        this.#distance = WebGL.#DISTANCE_MAX;
+        this.#velocityAzimuth = 0.0;
+        this.#velocityElevation = 0.0;
+        this.#velocityDistance = 0.0;
         this.#rotation = 0.0;
         this.#time = 0;
         this.#gl.clearColor(...WebGL.#CLEAR_COLOR);
         this.#gl.clearDepth(WebGL.#CLEAR_DEPTH);
         this.#gl.depthFunc(this.#gl.LEQUAL);
         this.#gl.enable(this.#gl.DEPTH_TEST);
+        this.#gl.canvas.addEventListener(Event.KEY_DOWN, this.keyboard.bind(this));
+        this.#gl.canvas.addEventListener(Event.KEY_UP, this.keyboard.bind(this));
+        this.#gl.canvas.focus();
+    }
+
+    keyboard(event) {
+        this.#velocityAzimuth = 0.0;
+        this.#velocityElevation = 0.0;
+        this.#velocityDistance = 0.0;
+        if (event.type == Event.KEY_DOWN) {
+            switch (event.code) {
+            case KeyCode.ARROW_UP:
+                this.#velocityElevation = WebGL.#VELOCITY_ELEVATION;
+                break;
+            case KeyCode.ARROW_DOWN:
+                this.#velocityElevation = -WebGL.#VELOCITY_ELEVATION;
+                break;
+            case KeyCode.ARROW_LEFT:
+                this.#velocityAzimuth = WebGL.#VELOCITY_AZIMUTH;
+                break;
+            case KeyCode.ARROW_RIGHT:
+                this.#velocityAzimuth = -WebGL.#VELOCITY_AZIMUTH;
+                break;
+            case KeyCode.PAGE_UP:
+                this.#velocityDistance = WebGL.#VELOCITY_DISTANCE;
+                break;
+            case KeyCode.PAGE_DOWN:
+                this.#velocityDistance = -WebGL.#VELOCITY_DISTANCE;
+                break;
+            }
+        }
     }
 
     render(time) {
-        const dt = time - this.#time;
+        const dt = (time - this.#time) / WebGL.#MS_PER_S;
+        document.querySelector(WebGL.#SELECTOR_FPS).firstChild.nodeValue = 1 / dt;
         this.#time = time;
         this.#gl.clear(this.#gl.COLOR_BUFFER_BIT | this.#gl.DEPTH_BUFFER_BIT);
         this.#gl.useProgram(this.#program);
@@ -83,13 +138,23 @@ class WebGL {
         mat4.perspective(projection, WebGL.#FIELD_OF_VIEW, this.#gl.canvas.clientWidth / this.#gl.canvas.clientHeight,
                 WebGL.#Z_NEAR, WebGL.#Z_FAR);
         this.#uniforms.projection = projection;
-//        const modelView = mat4.create();
-//        mat4.translate(modelView, modelView, [0.0, 0.0, -10.0]);
-//        this.#rotation += WebGL.#VR * dt / WebGL.#MS_PER_S;
-//        mat4.rotate(modelView, modelView, this.#rotation, WebGL.#AXIS_Z);
-//        mat4.rotate(modelView, modelView, this.#rotation * 0.7, WebGL.#AXIS_Y);
-//        mat4.rotate(modelView, modelView, this.#rotation * 0.3, WebGL.#AXIS_X);
-//        this.#uniforms.modelView = modelView;
+        const view = mat4.create();
+        this.#azimuth += this.#velocityAzimuth * dt;
+        if (this.#azimuth < 0) {
+            this.#azimuth += 2 * Math.PI;
+        } else if (this.#azimuth >= 2 * Math.PI) {
+            this.#azimuth -= 2 * Math.PI;
+        }
+        document.querySelector(WebGL.#SELECTOR_AZIMUTH).firstChild.nodeValue = WebGL.#FORMAT_ANGLE(this.#azimuth);
+        mat4.rotateY(view, view, -this.#azimuth);
+        this.#elevation = Math.min(Math.max(this.#elevation + this.#velocityElevation * dt,
+                0), Math.PI / 2);
+        document.querySelector(WebGL.#SELECTOR_ELEVATION).firstChild.nodeValue = WebGL.#FORMAT_ANGLE(this.#elevation);
+        mat4.rotateX(view, view, -this.#elevation);
+        this.#distance = Math.min(Math.max(this.#distance + this.#velocityDistance * dt,
+                WebGL.#DISTANCE_MIN), WebGL.#DISTANCE_MAX);
+        document.querySelector(WebGL.#SELECTOR_DISTANCE).firstChild.nodeValue = WebGL.#FORMAT_DISTANCE(this.#distance);
+        mat4.translate(view, view, [0.0, 0.0, this.#distance]);
         this.#attributes.position = this.#buffers.positions;
         this.#attributes.color = this.#buffers.colors;
         this.#gl.bindBuffer(this.#gl.ELEMENT_ARRAY_BUFFER, this.#buffers.indices);
@@ -97,8 +162,9 @@ class WebGL {
         for (let i = 0; i < 5; i++) {
             for (let j = 0; j < 5; j++) {
                 const modelView = mat4.create();
-                mat4.translate(modelView, modelView, [4 * i, 3 * j, -25.0]);
-                this.#rotation += WebGL.#VR * dt / WebGL.#MS_PER_S;
+                mat4.invert(modelView, view);
+                mat4.translate(modelView, modelView, [4 * i, 3 * j, 0.0]);
+                this.#rotation += WebGL.#VR * dt;
                 mat4.rotate(modelView, modelView, this.#rotation * 0.01 * (i + 1), WebGL.#AXIS_Z);
                 mat4.rotate(modelView, modelView, this.#rotation * 0.02 * (j + 1), WebGL.#AXIS_Y);
                 mat4.rotate(modelView, modelView, this.#rotation * 0.03, WebGL.#AXIS_X);
