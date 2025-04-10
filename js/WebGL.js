@@ -1,7 +1,7 @@
 'use strict';
 
 class WebGL {
-    static #ATTRIBUTES = {'position': 3, 'color': 4};
+    static #ATTRIBUTES = {'position': 3, 'normal': 3, 'color': 4};
     static #CLEAR_COLOR = [0.0, 0.0, 0.0, 1.0]; // black
     static #CLEAR_DEPTH = 1.0;
     static #CONTEXT = 'webgl2';
@@ -22,7 +22,7 @@ class WebGL {
     static #SELECTOR_FPS = 'span#fps';
     static #SHADER_FRAGMENT = './glsl/fragment.glsl';
     static #SHADER_VERTEX = './glsl/vertex.glsl';
-    static #UNIFORMS = ['projection', 'modelView'];
+    static #UNIFORMS = ['projection', 'view', 'model', 'direction'];
     static #VELOCITY_AZIMUTH = 0.25 * Math.PI; // 0.125 Hz
     static #VELOCITY_DISTANCE = 100.0; // 100 m/s
     static #VELOCITY_ELEVATION = 0.25 * Math.PI; // 0.125 Hz
@@ -78,6 +78,7 @@ class WebGL {
         this.#attributes = this.#resolveAttributes(WebGL.#ATTRIBUTES);
         this.#buffers = {
             positions: this.#createBuffer(this.#gl.ARRAY_BUFFER, new Float32Array(model.positions)),
+            normals: this.#createBuffer(this.#gl.ARRAY_BUFFER, new Float32Array(model.normals)),
             colors: this.#createBuffer(this.#gl.ARRAY_BUFFER, new Float32Array(model.colors)),
             indices: this.#createBuffer(this.#gl.ELEMENT_ARRAY_BUFFER, new Uint16Array(model.indices))
         };
@@ -139,7 +140,7 @@ class WebGL {
         const projection = mat4.create();
         mat4.perspective(projection, WebGL.#FIELD_OF_VIEW, this.#gl.canvas.clientWidth / this.#gl.canvas.clientHeight,
                 WebGL.#Z_NEAR, WebGL.#Z_FAR);
-        this.#uniforms.projection = projection;
+        this.#gl.uniformMatrix4fv(this.#uniforms.projection, false, projection);
         const view = mat4.create();
         this.#azimuth += this.#velocityAzimuth * dt;
         if (this.#azimuth < 0) {
@@ -157,23 +158,26 @@ class WebGL {
                 WebGL.#DISTANCE_MIN), WebGL.#DISTANCE_MAX);
         document.querySelector(WebGL.#SELECTOR_DISTANCE).firstChild.nodeValue = WebGL.#FORMAT_DISTANCE(this.#distance);
         mat4.translate(view, view, [0.0, 0.0, this.#distance]);
+        mat4.invert(view, view);
+        this.#gl.uniformMatrix4fv(this.#uniforms.view, false, view);
+        this.#gl.uniform3fv(this.#uniforms.direction, [-1.41421356237, -1.41421356237, 0.0]);
         this.#attributes.position = this.#buffers.positions;
+        this.#attributes.normal = this.#buffers.normals;
         this.#attributes.color = this.#buffers.colors;
         this.#gl.bindBuffer(this.#gl.ELEMENT_ARRAY_BUFFER, this.#buffers.indices);
         for (let i = 0; i < 3; i++) {
             for (let j = 0; j < 3; j++) {
                 for (let k = 0; k < 3; k++) {
-                    const modelView = mat4.create();
-                    mat4.invert(modelView, view);
-                    mat4.translate(modelView, modelView, [4 * i, 4 * j, 4 * k]);
+                    const model = mat4.create();
+                    mat4.translate(model, model, [4 * i, 4 * j, 4 * k]);
                     this.#rotation += WebGL.#VELOCITY_ROTATION * dt;
                     if (this.#rotation >= 2 * Math.PI) {
                         this.#rotation -= 2 * Math.PI;
                     }
-                    mat4.rotateX(modelView, modelView, this.#rotation * i);
-                    mat4.rotateY(modelView, modelView, this.#rotation * j);
-                    mat4.rotateZ(modelView, modelView, this.#rotation * k);
-                    this.#uniforms.modelView = modelView;
+                    mat4.rotateX(model, model, this.#rotation * i);
+                    mat4.rotateY(model, model, this.#rotation * j);
+                    mat4.rotateZ(model, model, this.#rotation * k);
+                    this.#gl.uniformMatrix4fv(this.#uniforms.model, false, model);
                     this.#gl.drawElements(this.#gl.TRIANGLES, this.#count, this.#gl.UNSIGNED_SHORT, 0);
                 }
             }
@@ -198,12 +202,7 @@ class WebGL {
         const result = {};
         const gl = this.#gl;
         for (let uniform of uniforms) {
-            const location = this.#gl.getUniformLocation(this.#program, uniform);
-            Object.defineProperty(result, uniform, {
-                set(uniform) {
-                    gl.uniformMatrix4fv(location, false, uniform);
-                }
-            });
+            result[uniform] = this.#gl.getUniformLocation(this.#program, uniform);
         }
         return result;
     }

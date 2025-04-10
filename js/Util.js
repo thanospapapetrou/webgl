@@ -30,6 +30,37 @@ function cube(size) {
     positions.push(-size / 2, -size / 2, -size / 2);
     positions.push(size / 2, size / 2, -size / 2);
     positions.push(-size / 2, size / 2, -size / 2);
+    const normals = [];
+    // top
+    normals.push(0.0, 1.0, 0.0);
+    normals.push(0.0, 1.0, 0.0);
+    normals.push(0.0, 1.0, 0.0);
+    normals.push(0.0, 1.0, 0.0);
+    // bottom
+    normals.push(0.0, -1.0, 0.0);
+    normals.push(0.0, -1.0, 0.0);
+    normals.push(0.0, -1.0, 0.0);
+    normals.push(0.0, -1.0, 0.0);
+    // left
+    normals.push(-1.0, 0.0, 0.0);
+    normals.push(-1.0, 0.0, 0.0);
+    normals.push(-1.0, 0.0, 0.0);
+    normals.push(-1.0, 0.0, 0.0);
+    // right
+    normals.push(1.0, 0.0, 0.0);
+    normals.push(1.0, 0.0, 0.0);
+    normals.push(1.0, 0.0, 0.0);
+    normals.push(1.0, 0.0, 0.0);
+    // front
+    normals.push(0.0, 0.0, 1.0);
+    normals.push(0.0, 0.0, 1.0);
+    normals.push(0.0, 0.0, 1.0);
+    normals.push(0.0, 0.0, 1.0);
+    // back
+    normals.push(0.0, 0.0, -1.0);
+    normals.push(0.0, 0.0, -1.0);
+    normals.push(0.0, 0.0, -1.0);
+    normals.push(0.0, 0.0, -1.0);
     const indices = [];
     // top
     indices.push(0, 1, 2);
@@ -49,5 +80,5 @@ function cube(size) {
     // back
     indices.push(20, 21, 22);
     indices.push(22, 21, 23);
-    return {positions, indices};
+    return {positions, normals, indices};
 }
