@@ -2,9 +2,6 @@
 
 class WebGL {
     static #ATTRIBUTES = {'position': 3, 'color': 4};
-    static #AXIS_X = [1.0, 0.0, 0.0];
-    static #AXIS_Y = [0.0, 1.0, 0.0];
-    static #AXIS_Z = [0.0, 0.0, 1.0];
     static #CLEAR_COLOR = [0.0, 0.0, 0.0, 1.0]; // black
     static #CLEAR_DEPTH = 1.0;
     static #CONTEXT = 'webgl2';
@@ -29,7 +26,7 @@ class WebGL {
     static #VELOCITY_AZIMUTH = 0.25 * Math.PI; // 0.125 Hz
     static #VELOCITY_DISTANCE = 10.0; // 1o m/s
     static #VELOCITY_ELEVATION = 0.25 * Math.PI; // 0.125 Hz
-    static #VR = 0.5 * Math.PI; // 0.25 Hz
+    static #VELOCITY_ROTATION = 0.005 * Math.PI; // 0.0025 Hz
     static #Z_FAR = 200.0; // 100 m
     static #Z_NEAR = 0.1; // 0.1 m
 
@@ -159,17 +156,22 @@ class WebGL {
         this.#attributes.color = this.#buffers.colors;
         this.#gl.bindBuffer(this.#gl.ELEMENT_ARRAY_BUFFER, this.#buffers.indices);
         const vertexCount = 36;
-        for (let i = 0; i < 5; i++) {
-            for (let j = 0; j < 5; j++) {
-                const modelView = mat4.create();
-                mat4.invert(modelView, view);
-                mat4.translate(modelView, modelView, [4 * i, 3 * j, 0.0]);
-                this.#rotation += WebGL.#VR * dt;
-                mat4.rotate(modelView, modelView, this.#rotation * 0.01 * (i + 1), WebGL.#AXIS_Z);
-                mat4.rotate(modelView, modelView, this.#rotation * 0.02 * (j + 1), WebGL.#AXIS_Y);
-                mat4.rotate(modelView, modelView, this.#rotation * 0.03, WebGL.#AXIS_X);
-                this.#uniforms.modelView = modelView;
-                this.#gl.drawElements(this.#gl.TRIANGLES, vertexCount, this.#gl.UNSIGNED_SHORT, 0);
+        for (let i = 0; i < 3; i++) {
+            for (let j = 0; j < 3; j++) {
+                for (let k = 0; k < 3; k++) {
+                    const modelView = mat4.create();
+                    mat4.invert(modelView, view);
+                    mat4.translate(modelView, modelView, [4 * i, 4 * j, 4 * k]);
+                    this.#rotation += WebGL.#VELOCITY_ROTATION * dt;
+                    if (this.#rotation >= 2 * Math.PI) {
+                        this.#rotation -= 2 * Math.PI;
+                    }
+                    mat4.rotateX(modelView, modelView, this.#rotation * i);
+                    mat4.rotateY(modelView, modelView, this.#rotation * j);
+                    mat4.rotateZ(modelView, modelView, this.#rotation * k);
+                    this.#uniforms.modelView = modelView;
+                    this.#gl.drawElements(this.#gl.TRIANGLES, vertexCount, this.#gl.UNSIGNED_SHORT, 0);
+                }
             }
         }
 //        this.#gl.drawElements(this.#gl.TRIANGLES, vertexCount, this.#gl.UNSIGNED_SHORT, 0);
