@@ -2,14 +2,13 @@
 
 class Renderable {
     #gl;
-    #vao;
-    #buffers;
+    #array;
     #count;
 
     constructor(gl, attributes, model) {
         this.#gl = gl;
-        this.#vao = this.#gl.createVertexArray();
-        this.#gl.bindVertexArray(this.#vao);
+        this.#array = this.#gl.createVertexArray();
+        this.#gl.bindVertexArray(this.#array);
         // TODO cleanup
         const positions = this.#gl.createBuffer();
         this.#gl.bindBuffer(this.#gl.ARRAY_BUFFER, positions);
@@ -30,12 +29,11 @@ class Renderable {
         this.#gl.bindBuffer(this.#gl.ELEMENT_ARRAY_BUFFER, indices);
         this.#gl.bufferData(this.#gl.ELEMENT_ARRAY_BUFFER, new Uint16Array(model.indices), this.#gl.STATIC_DRAW);
         this.#gl.bindVertexArray(null);
-
         this.#count = model.indices.length;
     }
 
     render() {
-        this.#gl.bindVertexArray(this.#vao);
+        this.#gl.bindVertexArray(this.#array);
         this.#gl.drawElements(this.#gl.TRIANGLES, this.#count, this.#gl.UNSIGNED_SHORT, 0);
     }
 }
