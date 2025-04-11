@@ -26,7 +26,6 @@ class Renderer {
 
     get attributes() {
         return this.#attributes;
-        return this.#attributes;
     }
 
     #link(vertex, fragment) {
@@ -63,17 +62,8 @@ class Renderer {
 
     #resolveAttributes(attributes) {
         this.#attributes = {};
-        const gl = this.#gl;
-        for (let attribute of Object.keys(attributes)) {
-            const location = this.#gl.getAttribLocation(this.#program, attribute);
-            const size = attributes[attribute];
-            Object.defineProperty(this.#attributes, attribute, {
-                set(attribute) {
-                    gl.bindBuffer(gl.ARRAY_BUFFER, attribute);
-                    gl.vertexAttribPointer(location, size, gl.FLOAT, false, 0, 0);
-                    gl.enableVertexAttribArray(location);
-                }
-            });
+        for (let attribute of attributes) {
+            this.#attributes[attribute] = this.#gl.getAttribLocation(this.#program, attribute);
         }
     }
 }

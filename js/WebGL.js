@@ -1,7 +1,7 @@
 'use strict';
 
 class WebGL {
-    static #ATTRIBUTES = {'position': 3, 'normal': 3, 'color': 4};
+    static #ATTRIBUTES = ['position', 'normal', 'color'];
     static #CLEAR_COLOR = [0.0, 0.0, 0.0, 1.0]; // black
     static #CLEAR_DEPTH = 1.0;
     static #CONTEXT = 'webgl2';
@@ -49,8 +49,8 @@ class WebGL {
             WebGL.#load(WebGL.#SHADER_FRAGMENT).then((response) => response.text()).then((fragment) => {
                 WebGL.#load(WebGL.#MODEL).then((response) => response.json()).then((cube) => {
                     const gl = document.querySelector(WebGL.#SELECTOR_CANVAS).getContext(WebGL.#CONTEXT);
-                    const webGl = new WebGL(gl, new Renderer(gl, vertex, fragment, WebGL.#UNIFORMS, WebGL.#ATTRIBUTES),
-                            new Renderable(gl, cube));
+                    const renderer = new Renderer(gl, vertex, fragment, WebGL.#UNIFORMS, WebGL.#ATTRIBUTES);
+                    const webGl = new WebGL(gl, renderer, new Renderable(gl, renderer.attributes, cube));
                     requestAnimationFrame(webGl.render.bind(webGl));
                 })
             })
@@ -164,11 +164,7 @@ class WebGL {
         this.#gl.useProgram(this.#renderer.program);
         this.#gl.uniformMatrix4fv(this.#renderer.uniforms.projection, false, this.#projection);
         this.#gl.uniformMatrix4fv(this.#renderer.uniforms.camera, false, this.#camera);
-        this.#gl.uniform3fv(this.#renderer.uniforms.direction, [-1.41421356237, -1.41421356237, 0.0]);
-        this.#renderer.attributes.position = this.#renderable.buffers.positions;
-        this.#renderer.attributes.normal = this.#renderable.buffers.normals;
-        this.#renderer.attributes.color = this.#renderable.buffers.colors;
-        this.#gl.bindBuffer(this.#gl.ELEMENT_ARRAY_BUFFER, this.#renderable.buffers.indices);
+        this.#gl.uniform3fv(this.#renderer.uniforms.direction, [-1.41421356237, -1.41421356237, 0.0]); // TODO
         for (let i = 0; i < 3; i++) {
             for (let j = 0; j < 3; j++) {
                 for (let k = 0; k < 3; k++) {
@@ -182,7 +178,7 @@ class WebGL {
                     mat4.rotateY(model, model, this.#rotation * j);
                     mat4.rotateZ(model, model, this.#rotation * k);
                     this.#gl.uniformMatrix4fv(this.#renderer.uniforms.model, false, model);
-                    this.#gl.drawElements(this.#gl.TRIANGLES, this.#renderable.count, this.#gl.UNSIGNED_SHORT, 0);
+                    this.#renderable.render();
                 }
             }
         }
