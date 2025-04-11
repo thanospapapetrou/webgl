@@ -7,8 +7,6 @@ class WebGL {
     static #CONTEXT = 'webgl2';
     static #DISTANCE_MIN = 1.0; // 1 m
     static #DISTANCE_MAX = 100.0; // 100 m
-    static #ERROR_COMPILING = (type, info) => `Error compiling ${(type == WebGLRenderingContext.VERTEX_SHADER) ? 'vertex' : 'fragment'} shader: ${info}`;
-    static #ERROR_LINKING = (info) => `Error linking program: ${info}`;
     static #ERROR_LOADING = (url, status) => `Error loading ${url}: HTTP status ${status}`;
     static #FIELD_OF_VIEW = 0.5 * Math.PI; // π/2
     static #FORMAT_ANGLE = (angle) => `${angle} rad (${angle * 180 / Math.PI} °)`;
@@ -31,11 +29,8 @@ class WebGL {
     static #Z_NEAR = 0.1; // 0.1 m
 
     #gl;
-    #program;
-    #uniforms;
-    #attributes;
-    #buffers;
-    #count;
+    #renderer;
+    #renderable;
     #azimuth;
     #elevation;
     #distance;
@@ -47,15 +42,15 @@ class WebGL {
 
     static main() {
         // VAOs
-        // split into renderer and renderable
         // resize
         // textures
         // light
         WebGL.#load(WebGL.#SHADER_VERTEX).then((response) => response.text()).then((vertex) => {
             WebGL.#load(WebGL.#SHADER_FRAGMENT).then((response) => response.text()).then((fragment) => {
                 WebGL.#load(WebGL.#MODEL).then((response) => response.json()).then((cube) => {
-                    const webGl = new WebGL(document.querySelector(WebGL.#SELECTOR_CANVAS).getContext(WebGL.#CONTEXT),
-                            vertex, fragment, cube);
+                    const gl = document.querySelector(WebGL.#SELECTOR_CANVAS).getContext(WebGL.#CONTEXT);
+                    const webGl = new WebGL(gl, new Renderer(gl, vertex, fragment, WebGL.#UNIFORMS, WebGL.#ATTRIBUTES),
+                            new Renderable(gl, cube));
                     requestAnimationFrame(webGl.render.bind(webGl));
                 })
             })
@@ -71,18 +66,10 @@ class WebGL {
         });
     }
 
-    constructor(gl, vertex, fragment, model) {
+    constructor(gl, renderer, renderable) {
         this.#gl = gl;
-        this.#program = this.#link(vertex, fragment);
-        this.#uniforms = this.#resolveUniforms(WebGL.#UNIFORMS);
-        this.#attributes = this.#resolveAttributes(WebGL.#ATTRIBUTES);
-        this.#buffers = {
-            positions: this.#createBuffer(this.#gl.ARRAY_BUFFER, new Float32Array(model.positions)),
-            normals: this.#createBuffer(this.#gl.ARRAY_BUFFER, new Float32Array(model.normals)),
-            colors: this.#createBuffer(this.#gl.ARRAY_BUFFER, new Float32Array(model.colors)),
-            indices: this.#createBuffer(this.#gl.ELEMENT_ARRAY_BUFFER, new Uint16Array(model.indices))
-        };
-        this.#count = model.indices.length;
+        this.#renderer = renderer;
+        this.#renderable = renderable;
         this.#azimuth = 0.0;
         this.#elevation = 0.0;
         this.#distance = WebGL.#DISTANCE_MAX;
@@ -100,7 +87,42 @@ class WebGL {
         this.#gl.canvas.addEventListener(Event.KEY_DOWN, this.keyboard.bind(this));
         this.#gl.canvas.addEventListener(Event.KEY_UP, this.keyboard.bind(this));
         this.#gl.canvas.focus();
-        console.log(JSON.stringify(cube(1)));
+    }
+
+    get azimuth() {
+        return this.#azimuth;
+    }
+
+    set azimuth(azimuth) {
+        this.#azimuth = azimuth;
+        if (this.#azimuth < 0) {
+            this.#azimuth += 2 * Math.PI;
+        } else if (this.#azimuth >= 2 * Math.PI) {
+            this.#azimuth -= 2 * Math.PI;
+        }
+        document.querySelector(WebGL.#SELECTOR_AZIMUTH).firstChild.nodeValue = WebGL.#FORMAT_ANGLE(this.#azimuth);
+    }
+
+    get elevation() {
+        return this.#elevation;
+    }
+
+    set elevation(elevation) {
+        this.#elevation = Math.min(Math.max(elevation, 0), Math.PI / 2);
+        document.querySelector(WebGL.#SELECTOR_ELEVATION).firstChild.nodeValue = WebGL.#FORMAT_ANGLE(this.#elevation);
+    }
+
+    get distance() {
+        return this.#distance;
+    }
+
+    set distance(distance) {
+        this.#distance = Math.min(Math.max(distance, WebGL.#DISTANCE_MIN), WebGL.#DISTANCE_MAX);
+        document.querySelector(WebGL.#SELECTOR_DISTANCE).firstChild.nodeValue = WebGL.#FORMAT_DISTANCE(this.#distance);
+    }
+
+    set fps(fps) {
+        document.querySelector(WebGL.#SELECTOR_FPS).firstChild.nodeValue = fps;
     }
 
     keyboard(event) {
@@ -133,42 +155,24 @@ class WebGL {
 
     render(time) {
         const dt = (time - this.#time) / WebGL.#MS_PER_S;
-        document.querySelector(WebGL.#SELECTOR_FPS).firstChild.nodeValue = 1 / dt;
+        this.fps = 1 / dt;
+        this.azimuth += this.#velocityAzimuth * dt;
+        this.elevation += this.#velocityElevation * dt;
+        this.distance += this.#velocityDistance * dt;
         this.#time = time;
         this.#gl.clear(this.#gl.COLOR_BUFFER_BIT | this.#gl.DEPTH_BUFFER_BIT);
-        this.#gl.useProgram(this.#program);
-        const projection = mat4.create();
-        mat4.perspective(projection, WebGL.#FIELD_OF_VIEW, this.#gl.canvas.clientWidth / this.#gl.canvas.clientHeight,
-                WebGL.#Z_NEAR, WebGL.#Z_FAR);
-        this.#gl.uniformMatrix4fv(this.#uniforms.projection, false, projection);
-        const view = mat4.create();
-        this.#azimuth += this.#velocityAzimuth * dt;
-        if (this.#azimuth < 0) {
-            this.#azimuth += 2 * Math.PI;
-        } else if (this.#azimuth >= 2 * Math.PI) {
-            this.#azimuth -= 2 * Math.PI;
-        }
-        document.querySelector(WebGL.#SELECTOR_AZIMUTH).firstChild.nodeValue = WebGL.#FORMAT_ANGLE(this.#azimuth);
-        mat4.rotateY(view, view, -this.#azimuth);
-        this.#elevation = Math.min(Math.max(this.#elevation + this.#velocityElevation * dt,
-                0), Math.PI / 2);
-        document.querySelector(WebGL.#SELECTOR_ELEVATION).firstChild.nodeValue = WebGL.#FORMAT_ANGLE(this.#elevation);
-        mat4.rotateX(view, view, -this.#elevation);
-        this.#distance = Math.min(Math.max(this.#distance + this.#velocityDistance * dt,
-                WebGL.#DISTANCE_MIN), WebGL.#DISTANCE_MAX);
-        document.querySelector(WebGL.#SELECTOR_DISTANCE).firstChild.nodeValue = WebGL.#FORMAT_DISTANCE(this.#distance);
-        mat4.translate(view, view, [0.0, 0.0, this.#distance]);
-        mat4.invert(view, view);
-        this.#gl.uniformMatrix4fv(this.#uniforms.view, false, view);
-        this.#gl.uniform3fv(this.#uniforms.direction, [-1.41421356237, -1.41421356237, 0.0]);
-        this.#attributes.position = this.#buffers.positions;
-        this.#attributes.normal = this.#buffers.normals;
-        this.#attributes.color = this.#buffers.colors;
-        this.#gl.bindBuffer(this.#gl.ELEMENT_ARRAY_BUFFER, this.#buffers.indices);
+        this.#gl.useProgram(this.#renderer.program);
+        this.#gl.uniformMatrix4fv(this.#renderer.uniforms.projection, false, this.#projection);
+        this.#gl.uniformMatrix4fv(this.#renderer.uniforms.view, false, this.#view);
+        this.#gl.uniform3fv(this.#renderer.uniforms.direction, [-1.41421356237, -1.41421356237, 0.0]);
+        this.#renderer.attributes.position = this.#renderable.buffers.positions;
+        this.#renderer.attributes.normal = this.#renderable.buffers.normals;
+        this.#renderer.attributes.color = this.#renderable.buffers.colors;
+        this.#gl.bindBuffer(this.#gl.ELEMENT_ARRAY_BUFFER, this.#renderable.buffers.indices);
         for (let i = 0; i < 3; i++) {
             for (let j = 0; j < 3; j++) {
                 for (let k = 0; k < 3; k++) {
-                    const model = mat4.create();
+                    const model = mat4.create(); // TODO separate method
                     mat4.translate(model, model, [4 * i, 4 * j, 4 * k]);
                     this.#rotation += WebGL.#VELOCITY_ROTATION * dt;
                     if (this.#rotation >= 2 * Math.PI) {
@@ -177,69 +181,27 @@ class WebGL {
                     mat4.rotateX(model, model, this.#rotation * i);
                     mat4.rotateY(model, model, this.#rotation * j);
                     mat4.rotateZ(model, model, this.#rotation * k);
-                    this.#gl.uniformMatrix4fv(this.#uniforms.model, false, model);
-                    this.#gl.drawElements(this.#gl.TRIANGLES, this.#count, this.#gl.UNSIGNED_SHORT, 0);
+                    this.#gl.uniformMatrix4fv(this.#renderer.uniforms.model, false, model);
+                    this.#gl.drawElements(this.#gl.TRIANGLES, this.#renderable.count, this.#gl.UNSIGNED_SHORT, 0);
                 }
             }
         }
         requestAnimationFrame(this.render.bind(this));
     }
 
-    #link(vertex, fragment) {
-        const program = this.#gl.createProgram();
-        this.#gl.attachShader(program, this.#compile(vertex, this.#gl.VERTEX_SHADER));
-        this.#gl.attachShader(program, this.#compile(fragment, this.#gl.FRAGMENT_SHADER));
-        this.#gl.linkProgram(program);
-        if (!this.#gl.getProgramParameter(program, this.#gl.LINK_STATUS)) {
-            const info = this.#gl.getProgramInfoLog(program);
-            this.#gl.deleteProgram(program);
-            throw new Error(WebGL.#ERROR_LINKING(info));
-        }
-        return program;
+    get #projection() {
+        const projection = mat4.create();
+        mat4.perspective(projection, WebGL.#FIELD_OF_VIEW, this.#gl.canvas.clientWidth / this.#gl.canvas.clientHeight,
+                WebGL.#Z_NEAR, WebGL.#Z_FAR);
+        return projection;
     }
 
-    #resolveUniforms(uniforms) {
-        const result = {};
-        const gl = this.#gl;
-        for (let uniform of uniforms) {
-            result[uniform] = this.#gl.getUniformLocation(this.#program, uniform);
-        }
-        return result;
-    }
-
-    #resolveAttributes(attributes) {
-        const result = {};
-        const gl = this.#gl;
-        for (let attribute of Object.keys(attributes)) {
-            const location = this.#gl.getAttribLocation(this.#program, attribute);
-            const size = attributes[attribute];
-            Object.defineProperty(result, attribute, {
-                set(attribute) {
-                    gl.bindBuffer(gl.ARRAY_BUFFER, attribute);
-                    gl.vertexAttribPointer(location, size, gl.FLOAT, false, 0, 0);
-                    gl.enableVertexAttribArray(location);
-                }
-            });
-        }
-        return result;
-    }
-
-    #compile(source, type) {
-        const shader = this.#gl.createShader(type);
-        this.#gl.shaderSource(shader, source);
-        this.#gl.compileShader(shader);
-        if (!this.#gl.getShaderParameter(shader, this.#gl.COMPILE_STATUS)) {
-            const info = this.#gl.getShaderInfoLog(shader);
-            this.#gl.deleteShader(shader);
-            throw new Error(WebGL.#ERROR_COMPILING(type, info))
-        }
-        return shader;
-    }
-
-    #createBuffer(type, data) {
-        const buffer = this.#gl.createBuffer();
-        this.#gl.bindBuffer(type, buffer);
-        this.#gl.bufferData(type, data, this.#gl.STATIC_DRAW);
-        return buffer;
+    get #view() { // TODO rename to camera and let shader inert
+        const view = mat4.create();
+        mat4.rotateY(view, view, -this.azimuth);
+        mat4.rotateX(view, view, -this.elevation);
+        mat4.translate(view, view, [0.0, 0.0, this.distance]);
+        mat4.invert(view, view);
+        return view;
     }
 }
