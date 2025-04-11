@@ -1,7 +1,7 @@
 #version 300 es
 
 uniform mat4 projection;
-uniform mat4 view;
+uniform mat4 camera;
 uniform mat4 model;
 
 in vec4 position;
@@ -12,7 +12,7 @@ out vec3 vertexNormal;
 out vec4 vertexColor;
 
 void main(void) {
-  gl_Position = projection * view * model * position;
+  gl_Position = projection * inverse(camera) * model * position;
   vertexNormal = mat3(model) * normal;
   vertexColor = color;
 }

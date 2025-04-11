@@ -20,7 +20,7 @@ class WebGL {
     static #SELECTOR_FPS = 'span#fps';
     static #SHADER_FRAGMENT = './glsl/fragment.glsl';
     static #SHADER_VERTEX = './glsl/vertex.glsl';
-    static #UNIFORMS = ['projection', 'view', 'model', 'direction'];
+    static #UNIFORMS = ['projection', 'camera', 'model', 'direction'];
     static #VELOCITY_AZIMUTH = 0.25 * Math.PI; // 0.125 Hz
     static #VELOCITY_DISTANCE = 100.0; // 100 m/s
     static #VELOCITY_ELEVATION = 0.25 * Math.PI; // 0.125 Hz
@@ -163,7 +163,7 @@ class WebGL {
         this.#gl.clear(this.#gl.COLOR_BUFFER_BIT | this.#gl.DEPTH_BUFFER_BIT);
         this.#gl.useProgram(this.#renderer.program);
         this.#gl.uniformMatrix4fv(this.#renderer.uniforms.projection, false, this.#projection);
-        this.#gl.uniformMatrix4fv(this.#renderer.uniforms.view, false, this.#view);
+        this.#gl.uniformMatrix4fv(this.#renderer.uniforms.camera, false, this.#camera);
         this.#gl.uniform3fv(this.#renderer.uniforms.direction, [-1.41421356237, -1.41421356237, 0.0]);
         this.#renderer.attributes.position = this.#renderable.buffers.positions;
         this.#renderer.attributes.normal = this.#renderable.buffers.normals;
@@ -196,12 +196,11 @@ class WebGL {
         return projection;
     }
 
-    get #view() { // TODO rename to camera and let shader inert
-        const view = mat4.create();
-        mat4.rotateY(view, view, -this.azimuth);
-        mat4.rotateX(view, view, -this.elevation);
-        mat4.translate(view, view, [0.0, 0.0, this.distance]);
-        mat4.invert(view, view);
-        return view;
+    get #camera() {
+        const camera = mat4.create();
+        mat4.rotateY(camera, camera, -this.azimuth);
+        mat4.rotateX(camera, camera, -this.elevation);
+        mat4.translate(camera, camera, [0.0, 0.0, this.distance]);
+        return camera;
     }
 }
