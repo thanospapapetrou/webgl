@@ -51,6 +51,7 @@ class WebGL {
                     const gl = document.querySelector(WebGL.#SELECTOR_CANVAS).getContext(WebGL.#CONTEXT);
                     const renderer = new Renderer(gl, vertex, fragment, WebGL.#UNIFORMS, WebGL.#ATTRIBUTES);
                     const webGl = new WebGL(gl, renderer, new Renderable(gl, renderer.attributes, cube));
+                    console.log(JSON.stringify(icosahedron()));
                     requestAnimationFrame(webGl.render.bind(webGl));
                 })
             })
@@ -108,7 +109,7 @@ class WebGL {
     }
 
     set elevation(elevation) {
-        this.#elevation = Math.min(Math.max(elevation, 0), Math.PI / 2);
+        this.#elevation = Math.min(Math.max(elevation, -Math.PI / 2), Math.PI / 2);
         document.querySelector(WebGL.#SELECTOR_ELEVATION).firstChild.nodeValue = WebGL.#FORMAT_ANGLE(this.#elevation);
     }
 
