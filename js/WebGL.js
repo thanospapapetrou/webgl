@@ -12,7 +12,8 @@ class WebGL {
     static #FORMAT_ANGLE = (angle) => `${angle} rad (${angle * 180 / Math.PI} °)`;
     static #FORMAT_DISTANCE = (distance) => `${distance} m`;
     static #MS_PER_S = 1000;
-    static #MODEL = './models/cube.json';
+    static #MODEL_CUBE = './models/cube.json';
+    static #MODEL_TETRAHEDRON = './models/tetrahedron.json';
     static #SELECTOR_AZIMUTH = 'span#azimuth';
     static #SELECTOR_CANVAS = 'canvas#gl';
     static #SELECTOR_DISTANCE = 'span#distance';
@@ -30,7 +31,7 @@ class WebGL {
 
     #gl;
     #renderer;
-    #renderable;
+    #renderables;
     #azimuth;
     #elevation;
     #distance;
@@ -47,12 +48,15 @@ class WebGL {
         // light
         WebGL.#load(WebGL.#SHADER_VERTEX).then((response) => response.text()).then((vertex) => {
             WebGL.#load(WebGL.#SHADER_FRAGMENT).then((response) => response.text()).then((fragment) => {
-                WebGL.#load(WebGL.#MODEL).then((response) => response.json()).then((cube) => {
-                    const gl = document.querySelector(WebGL.#SELECTOR_CANVAS).getContext(WebGL.#CONTEXT);
-                    const renderer = new Renderer(gl, vertex, fragment, WebGL.#UNIFORMS, WebGL.#ATTRIBUTES);
-                    const webGl = new WebGL(gl, renderer, new Renderable(gl, renderer.attributes, cube));
-                    console.log(JSON.stringify(icosahedron()));
-                    requestAnimationFrame(webGl.render.bind(webGl));
+                WebGL.#load(WebGL.#MODEL_CUBE).then((response) => response.json()).then((cube) => {
+                    WebGL.#load(WebGL.#MODEL_TETRAHEDRON).then((response) => response.json()).then((tetrahedron) => {
+                        const gl = document.querySelector(WebGL.#SELECTOR_CANVAS).getContext(WebGL.#CONTEXT);
+                        const renderer = new Renderer(gl, vertex, fragment, WebGL.#UNIFORMS, WebGL.#ATTRIBUTES);
+                        const webGl = new WebGL(gl, renderer, [
+                                new Renderable(gl, renderer.attributes, cube),
+                                new Renderable(gl, renderer.attributes, tetrahedron)]);
+                        requestAnimationFrame(webGl.render.bind(webGl));
+                    })
                 })
             })
         });
@@ -67,10 +71,10 @@ class WebGL {
         });
     }
 
-    constructor(gl, renderer, renderable) {
+    constructor(gl, renderer, renderables) {
         this.#gl = gl;
         this.#renderer = renderer;
-        this.#renderable = renderable;
+        this.#renderables = renderables;
         this.#azimuth = 0.0;
         this.#elevation = 0.0;
         this.#distance = WebGL.#DISTANCE_MAX;
@@ -166,11 +170,14 @@ class WebGL {
         this.#gl.uniformMatrix4fv(this.#renderer.uniforms.projection, false, this.#projection);
         this.#gl.uniformMatrix4fv(this.#renderer.uniforms.camera, false, this.#camera);
         this.#gl.uniform3fv(this.#renderer.uniforms.direction, [-1.41421356237, -1.41421356237, 0.0]); // TODO
-        for (let i = 0; i < 3; i++) {
-            for (let j = 0; j < 3; j++) {
-                for (let k = 0; k < 3; k++) {
+        const n = 3;
+        const m = 3;
+        const l = 3;
+        for (let i = 0; i < n; i++) {
+            for (let j = 0; j < m; j++) {
+                for (let k = 0; k < l; k++) {
                     const model = mat4.create(); // TODO separate method
-                    mat4.translate(model, model, [4 * i, 4 * j, 4 * k]);
+                    mat4.translate(model, model, [2 * i, 2 * j, 2 * k]);
                     this.#rotation += WebGL.#VELOCITY_ROTATION * dt;
                     if (this.#rotation >= 2 * Math.PI) {
                         this.#rotation -= 2 * Math.PI;
@@ -179,7 +186,7 @@ class WebGL {
                     mat4.rotateY(model, model, this.#rotation * j);
                     mat4.rotateZ(model, model, this.#rotation * k);
                     this.#gl.uniformMatrix4fv(this.#renderer.uniforms.model, false, model);
-                    this.#renderable.render();
+                    this.#renderables[(i * m * l + j * l + k) % this.#renderables.length].render();
                 }
             }
         }
