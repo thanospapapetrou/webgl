@@ -42,7 +42,7 @@ class WebGL {
     #time;
 
     static main() {
-        // VAOs
+        // TODO
         // resize
         // textures
         // light
