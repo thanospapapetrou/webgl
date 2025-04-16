@@ -23,7 +23,7 @@ class WebGL {
     static #SHADER_VERTEX = './glsl/vertex.glsl';
     static #UNIFORMS = ['projection', 'camera', 'model', 'direction'];
     static #VELOCITY_AZIMUTH = 0.25 * Math.PI; // 0.125 Hz
-    static #VELOCITY_DISTANCE = 100.0; // 100 m/s
+    static #VELOCITY_DISTANCE = 10.0; // 10 m/s
     static #VELOCITY_ELEVATION = 0.25 * Math.PI; // 0.125 Hz
     static #VELOCITY_ROTATION = 0.005 * Math.PI; // 0.0025 Hz
     static #Z_FAR = 200.0; // 100 m
@@ -54,7 +54,8 @@ class WebGL {
                         const renderer = new Renderer(gl, vertex, fragment, WebGL.#UNIFORMS, WebGL.#ATTRIBUTES);
                         const webGl = new WebGL(gl, renderer, [
                                 new Renderable(gl, renderer.attributes, cube),
-                                new Renderable(gl, renderer.attributes, tetrahedron)]);
+                                new Renderable(gl, renderer.attributes, tetrahedron),
+                                new Renderable(gl, renderer.attributes, uvSphere(16, 16))]);
                         requestAnimationFrame(webGl.render.bind(webGl));
                     })
                 })

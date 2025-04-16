@@ -47,6 +47,47 @@ function negate(a) {
     return -1.0 * a;
 }
 
+function uvSphere(slices, sectors) {
+    const va = Math.PI / slices;
+    const vh = 2 * Math.PI / sectors;
+    const positions = [];
+    const normals = [];
+    const colors = [];
+    const indices = [];
+    positions.push(0.0, -1.0, 0.0);
+    normals.push(0.0, -1.0, 0.0);
+    colors.push(1.0, 0.0, 0.0, 1.0);
+    for (let i = 0; i < slices - 1; i++) {
+        for (let j = 0; j < sectors; j++) {
+            const y = Math.sin((i + 1) * va - Math.PI / 2);
+            const x = Math.cos((i + 1) * va - Math.PI / 2) * Math.cos(j * vh);
+            const z = -Math.cos((i + 1) * va - Math.PI / 2) * Math.sin(j * vh);
+            positions.push(x, y, z);
+            normals.push(x, y, z);
+            colors.push(1.0, 0.0, 0.0, 1.0);
+            if (i > 0) {
+                indices.push((i - 1) * sectors + j + 1,
+                        (i - 1) * sectors + (j + 1) % sectors + 1,
+                        i * sectors + j + 1);
+                indices.push(i * sectors + (j + 1) % sectors + 1,
+                        i * sectors + j + 1,
+                        (i - 1) * sectors + (j + 1) % sectors + 1);
+            } else {
+                indices.push((j + 1) % sectors + 1 , j + 1, 0);
+            }
+        }
+    }
+    positions.push(0.0, 1.0, 0.0);
+    normals.push(0.0, 1.0, 0.0);
+    colors.push(1.0, 0.0, 0.0, 1.0);
+    for (let j = 0; j < sectors; j++) {
+        indices.push((slices - 2) * sectors + j + 1,
+                (slices - 2) * sectors + (j + 1) % sectors + 1,
+                (slices - 1) * sectors + 1);
+    }
+    return {positions, normals, colors, indices};
+}
+
 function icosahedron() {
     const n = 5;
     const horizontalAngle = Math.PI * 2 / n; // 72 degrees
