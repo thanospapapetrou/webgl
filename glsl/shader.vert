@@ -13,6 +13,6 @@ out vec4 vertexColor;
 
 void main(void) {
   gl_Position = projection * inverse(camera) * model * position;
-  vertexNormal = mat3(model) * normal;
+  vertexNormal = mat3(transpose(inverse(model))) * normal;
   vertexColor = color;
 }

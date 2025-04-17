@@ -13,9 +13,9 @@ class WebGL {
     static #FORMAT_DISTANCE = (distance) => `${distance} m`;
     static #MS_PER_S = 1000;
     static #LIGHT = {
-        ambient: [0.5, 0.5, 0.5],
+        ambient: [0.25, 0.25, 0.25],
         directional: {
-            color: [0.5, 0.0, 0.0],
+            color: [0.75, 0.25, 0.25],
             direction: [0.0, 1.0, 0.0]
         }
     };
@@ -55,7 +55,11 @@ class WebGL {
 
     static main() {
         // TODO
+        // idle
+        // data
         // resize
+        // configuration
+        // viewport
         // textures
         // light
         WebGL.#load(WebGL.#SHADER_VERTEX).then((response) => response.text()).then((vertex) => {
