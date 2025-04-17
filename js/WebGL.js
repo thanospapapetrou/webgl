@@ -12,6 +12,13 @@ class WebGL {
     static #FORMAT_ANGLE = (angle) => `${angle} rad (${angle * 180 / Math.PI} °)`;
     static #FORMAT_DISTANCE = (distance) => `${distance} m`;
     static #MS_PER_S = 1000;
+    static #LIGHT = {
+        ambient: [0.5, 0.5, 0.5],
+        directional: {
+            color: [0.5, 0.0, 0.0],
+            direction: [0.0, 1.0, 0.0]
+        }
+    };
     static #MODEL_CUBE = './models/cube.json';
     static #MODEL_TETRAHEDRON = './models/tetrahedron.json';
     static #SELECTOR_AZIMUTH = 'span#azimuth';
@@ -21,7 +28,12 @@ class WebGL {
     static #SELECTOR_FPS = 'span#fps';
     static #SHADER_FRAGMENT = './glsl/shader.frag';
     static #SHADER_VERTEX = './glsl/shader.vert';
-    static #UNIFORMS = ['projection', 'camera', 'model', 'direction'];
+    static #UNIFORM_CAMERA = 'camera';
+    static #UNIFORM_LIGHT_AMBIENT = 'light.ambient';
+    static #UNIFORM_LIGHT_DIRECTIONAL_COLOR = 'light.directional.color';
+    static #UNIFORM_LIGHT_DIRECTIONAL_DIRECTION = 'light.directional.direction';
+    static #UNIFORM_MODEL = 'model';
+    static #UNIFORM_PROJECTION = 'projection';
     static #VELOCITY_AZIMUTH = 0.25 * Math.PI; // 0.125 Hz
     static #VELOCITY_DISTANCE = 10.0; // 10 m/s
     static #VELOCITY_ELEVATION = 0.25 * Math.PI; // 0.125 Hz
@@ -51,7 +63,10 @@ class WebGL {
                 WebGL.#load(WebGL.#MODEL_CUBE).then((response) => response.json()).then((cube) => {
                     WebGL.#load(WebGL.#MODEL_TETRAHEDRON).then((response) => response.json()).then((tetrahedron) => {
                         const gl = document.querySelector(WebGL.#SELECTOR_CANVAS).getContext(WebGL.#CONTEXT);
-                        const renderer = new Renderer(gl, vertex, fragment, WebGL.#UNIFORMS, WebGL.#ATTRIBUTES);
+                        const renderer = new Renderer(gl, vertex, fragment, [WebGL.#UNIFORM_PROJECTION,
+                                WebGL.#UNIFORM_CAMERA, WebGL.#UNIFORM_MODEL, WebGL.#UNIFORM_LIGHT_AMBIENT,
+                                WebGL.#UNIFORM_LIGHT_DIRECTIONAL_COLOR, WebGL.#UNIFORM_LIGHT_DIRECTIONAL_DIRECTION],
+                                WebGL.#ATTRIBUTES);
                         const webGl = new WebGL(gl, renderer, [
                                 new Renderable(gl, renderer.attributes, cube),
                                 new Renderable(gl, renderer.attributes, tetrahedron),
@@ -168,9 +183,13 @@ class WebGL {
         this.#time = time;
         this.#gl.clear(this.#gl.COLOR_BUFFER_BIT | this.#gl.DEPTH_BUFFER_BIT);
         this.#gl.useProgram(this.#renderer.program);
-        this.#gl.uniformMatrix4fv(this.#renderer.uniforms.projection, false, this.#projection);
-        this.#gl.uniformMatrix4fv(this.#renderer.uniforms.camera, false, this.#camera);
-        this.#gl.uniform3fv(this.#renderer.uniforms.direction, [-1.41421356237, -1.41421356237, 0.0]); // TODO
+        this.#gl.uniformMatrix4fv(this.#renderer.uniforms[WebGL.#UNIFORM_PROJECTION], false, this.#projection);
+        this.#gl.uniformMatrix4fv(this.#renderer.uniforms[WebGL.#UNIFORM_CAMERA], false, this.#camera);
+        this.#gl.uniform3fv(this.#renderer.uniforms[WebGL.#UNIFORM_LIGHT_AMBIENT], WebGL.#LIGHT.ambient);
+        this.#gl.uniform3fv(this.#renderer.uniforms[WebGL.#UNIFORM_LIGHT_DIRECTIONAL_COLOR],
+                WebGL.#LIGHT.directional.color);
+        this.#gl.uniform3fv(this.#renderer.uniforms[WebGL.#UNIFORM_LIGHT_DIRECTIONAL_DIRECTION],
+                WebGL.#LIGHT.directional.direction);
         const n = 3;
         const m = 3;
         const l = 3;
@@ -186,7 +205,7 @@ class WebGL {
                     mat4.rotateX(model, model, this.#rotation * i);
                     mat4.rotateY(model, model, this.#rotation * j);
                     mat4.rotateZ(model, model, this.#rotation * k);
-                    this.#gl.uniformMatrix4fv(this.#renderer.uniforms.model, false, model);
+                    this.#gl.uniformMatrix4fv(this.#renderer.uniforms[WebGL.#UNIFORM_MODEL], false, model);
                     this.#renderables[(i * m * l + j * l + k) % this.#renderables.length].render();
                 }
             }

@@ -2,7 +2,17 @@
 
 precision lowp float;
 
-uniform vec3 direction;
+struct Directional {
+    vec3 color;
+    vec3 direction;
+};
+
+struct Light {
+    vec3 ambient;
+    Directional directional;
+};
+
+uniform Light light;
 
 in vec3 vertexNormal;
 in vec4 vertexColor;
@@ -11,5 +21,5 @@ out vec4 fragmentColor;
 
 void main(void) {
     fragmentColor = vertexColor;
-    fragmentColor.rgb *= 0.25 + max(dot(normalize(vertexNormal), direction), 0.0); // TODO ambient light
+    fragmentColor.rgb *= light.ambient + light.directional.color * max(dot(normalize(vertexNormal), light.directional.direction), 0.0);
 }
