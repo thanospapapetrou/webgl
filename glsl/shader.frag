@@ -21,5 +21,6 @@ out vec4 fragmentColor;
 
 void main(void) {
     fragmentColor = vertexColor;
-    fragmentColor.rgb *= light.ambient + light.directional.color * max(dot(normalize(vertexNormal), light.directional.direction), 0.0);
+    fragmentColor.rgb *= light.ambient + light.directional.color * max(dot(normalize(vertexNormal),
+            light.directional.direction), 0.0);
 }

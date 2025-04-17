@@ -37,7 +37,7 @@ class WebGL {
     static #VELOCITY_AZIMUTH = 0.25 * Math.PI; // 0.125 Hz
     static #VELOCITY_DISTANCE = 10.0; // 10 m/s
     static #VELOCITY_ELEVATION = 0.25 * Math.PI; // 0.125 Hz
-    static #VELOCITY_ROTATION = 0.005 * Math.PI; // 0.0025 Hz
+    static #VELOCITY_ROTATION = 0.5 * Math.PI; // 0.25 Hz
     static #Z_FAR = 200.0; // 100 m
     static #Z_NEAR = 0.1; // 0.1 m
 
@@ -55,7 +55,6 @@ class WebGL {
 
     static main() {
         // TODO
-        // idle
         // data
         // resize
         // configuration
@@ -150,6 +149,17 @@ class WebGL {
         document.querySelector(WebGL.#SELECTOR_FPS).firstChild.nodeValue = fps;
     }
 
+    get rotation() {
+        return this.#rotation;
+    }
+
+    set rotation(rotation) {
+        this.#rotation = rotation;
+        if (this.#rotation >= 2 * Math.PI) {
+            this.#rotation -= 2 * Math.PI;
+        }
+    }
+
     keyboard(event) {
         this.#velocityAzimuth = 0.0;
         this.#velocityElevation = 0.0;
@@ -179,12 +189,7 @@ class WebGL {
     }
 
     render(time) {
-        const dt = (time - this.#time) / WebGL.#MS_PER_S;
-        this.fps = 1 / dt;
-        this.azimuth += this.#velocityAzimuth * dt;
-        this.elevation += this.#velocityElevation * dt;
-        this.distance += this.#velocityDistance * dt;
-        this.#time = time;
+        this.idle(time);
         this.#gl.clear(this.#gl.COLOR_BUFFER_BIT | this.#gl.DEPTH_BUFFER_BIT);
         this.#gl.useProgram(this.#renderer.program);
         this.#gl.uniformMatrix4fv(this.#renderer.uniforms[WebGL.#UNIFORM_PROJECTION], false, this.#projection);
@@ -195,26 +200,27 @@ class WebGL {
         this.#gl.uniform3fv(this.#renderer.uniforms[WebGL.#UNIFORM_LIGHT_DIRECTIONAL_DIRECTION],
                 WebGL.#LIGHT.directional.direction);
         const n = 3;
-        const m = 3;
-        const l = 3;
+        const m = 4;
+        const l = 5;
         for (let i = 0; i < n; i++) {
             for (let j = 0; j < m; j++) {
                 for (let k = 0; k < l; k++) {
-                    const model = mat4.create(); // TODO separate method
-                    mat4.translate(model, model, [2 * i, 2 * j, 2 * k]);
-                    this.#rotation += WebGL.#VELOCITY_ROTATION * dt;
-                    if (this.#rotation >= 2 * Math.PI) {
-                        this.#rotation -= 2 * Math.PI;
-                    }
-                    mat4.rotateX(model, model, this.#rotation * i);
-                    mat4.rotateY(model, model, this.#rotation * j);
-                    mat4.rotateZ(model, model, this.#rotation * k);
-                    this.#gl.uniformMatrix4fv(this.#renderer.uniforms[WebGL.#UNIFORM_MODEL], false, model);
+                    this.#gl.uniformMatrix4fv(this.#renderer.uniforms[WebGL.#UNIFORM_MODEL], false, this.#model(i, j, k));
                     this.#renderables[(i * m * l + j * l + k) % this.#renderables.length].render();
                 }
             }
         }
         requestAnimationFrame(this.render.bind(this));
+    }
+
+    idle(time) {
+    const dt = (time - this.#time) / WebGL.#MS_PER_S;
+        this.fps = 1 / dt;
+        this.azimuth += this.#velocityAzimuth * dt;
+        this.elevation += this.#velocityElevation * dt;
+        this.distance += this.#velocityDistance * dt;
+        this.rotation += WebGL.#VELOCITY_ROTATION * dt;
+        this.#time = time;
     }
 
     get #projection() {
@@ -230,5 +236,14 @@ class WebGL {
         mat4.rotateX(camera, camera, -this.elevation);
         mat4.translate(camera, camera, [0.0, 0.0, this.distance]);
         return camera;
+    }
+
+    #model(i, j, k) {
+        const model = mat4.create();
+        mat4.translate(model, model, [2 * i, 2 * j, 2 * k]);
+        mat4.rotateX(model, model, this.rotation * i);
+        mat4.rotateY(model, model, this.rotation * j);
+        mat4.rotateZ(model, model, this.rotation * k);
+        return model;
     }
 }
