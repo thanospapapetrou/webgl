@@ -34,6 +34,6 @@ class Renderable {
 
     render() {
         this.#gl.bindVertexArray(this.#array);
-        this.#gl.drawElements(this.#gl.TRIANGLES, this.#count, this.#gl.UNSIGNED_SHORT, 0);
+        this.#gl.drawElements(this.#gl.TRIANGLES, this.#count, this.#gl.UNSIGNED_SHORT, 0); // TODO byte
     }
 }

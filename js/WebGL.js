@@ -2,13 +2,9 @@
 
 class WebGL {
     static #ATTRIBUTES = ['position', 'normal', 'color'];
-    static #CLEAR_COLOR = [0.0, 0.0, 0.0, 1.0]; // black
-    static #CLEAR_DEPTH = 1.0;
+    static #CONFIGURATION = './json/configuration.json';
     static #CONTEXT = 'webgl2';
-    static #DISTANCE_MIN = 1.0; // 1 m
-    static #DISTANCE_MAX = 100.0; // 100 m
     static #ERROR_LOADING = (url, status) => `Error loading ${url}: HTTP status ${status}`;
-    static #FIELD_OF_VIEW = 0.5 * Math.PI; // π/2
     static #FORMAT_ANGLE = (angle) => `${angle} rad (${angle * 180 / Math.PI} °)`;
     static #FORMAT_DISTANCE = (distance) => `${distance} m`;
     static #MS_PER_S = 1000;
@@ -19,8 +15,8 @@ class WebGL {
             direction: [0.0, 1.0, 0.0]
         }
     };
-    static #MODEL_CUBE = './models/cube.json';
-    static #MODEL_TETRAHEDRON = './models/tetrahedron.json';
+    static #MODEL_CUBE = './json/cube.json';
+    static #MODEL_TETRAHEDRON = './json/tetrahedron.json';
     static #SELECTOR_AZIMUTH = 'span#azimuth';
     static #SELECTOR_CANVAS = 'canvas#gl';
     static #SELECTOR_DISTANCE = 'span#distance';
@@ -34,16 +30,11 @@ class WebGL {
     static #UNIFORM_LIGHT_DIRECTIONAL_DIRECTION = 'light.directional.direction';
     static #UNIFORM_MODEL = 'model';
     static #UNIFORM_PROJECTION = 'projection';
-    static #VELOCITY_AZIMUTH = 0.25 * Math.PI; // 0.125 Hz
-    static #VELOCITY_DISTANCE = 10.0; // 10 m/s
-    static #VELOCITY_ELEVATION = 0.25 * Math.PI; // 0.125 Hz
-    static #VELOCITY_ROTATION = 0.5 * Math.PI; // 0.25 Hz
-    static #Z_FAR = 200.0; // 100 m
-    static #Z_NEAR = 0.1; // 0.1 m
 
     #gl;
     #renderer;
     #renderables;
+    #configuration;
     #azimuth;
     #elevation;
     #distance;
@@ -55,9 +46,7 @@ class WebGL {
 
     static main() {
         // TODO
-        // data
         // resize
-        // configuration
         // viewport
         // textures
         // light
@@ -65,16 +54,18 @@ class WebGL {
             WebGL.#load(WebGL.#SHADER_FRAGMENT).then((response) => response.text()).then((fragment) => {
                 WebGL.#load(WebGL.#MODEL_CUBE).then((response) => response.json()).then((cube) => {
                     WebGL.#load(WebGL.#MODEL_TETRAHEDRON).then((response) => response.json()).then((tetrahedron) => {
-                        const gl = document.querySelector(WebGL.#SELECTOR_CANVAS).getContext(WebGL.#CONTEXT);
-                        const renderer = new Renderer(gl, vertex, fragment, [WebGL.#UNIFORM_PROJECTION,
-                                WebGL.#UNIFORM_CAMERA, WebGL.#UNIFORM_MODEL, WebGL.#UNIFORM_LIGHT_AMBIENT,
-                                WebGL.#UNIFORM_LIGHT_DIRECTIONAL_COLOR, WebGL.#UNIFORM_LIGHT_DIRECTIONAL_DIRECTION],
-                                WebGL.#ATTRIBUTES);
-                        const webGl = new WebGL(gl, renderer, [
-                                new Renderable(gl, renderer.attributes, cube),
-                                new Renderable(gl, renderer.attributes, tetrahedron),
-                                new Renderable(gl, renderer.attributes, uvSphere(16, 16))]);
-                        requestAnimationFrame(webGl.render.bind(webGl));
+                        WebGL.#load(WebGL.#CONFIGURATION).then((response) => response.json()).then((configuration) => {
+                            const gl = document.querySelector(WebGL.#SELECTOR_CANVAS).getContext(WebGL.#CONTEXT);
+                            const renderer = new Renderer(gl, vertex, fragment, [WebGL.#UNIFORM_PROJECTION,
+                                    WebGL.#UNIFORM_CAMERA, WebGL.#UNIFORM_MODEL, WebGL.#UNIFORM_LIGHT_AMBIENT,
+                                    WebGL.#UNIFORM_LIGHT_DIRECTIONAL_COLOR, WebGL.#UNIFORM_LIGHT_DIRECTIONAL_DIRECTION],
+                                    WebGL.#ATTRIBUTES);
+                            const webGl = new WebGL(gl, renderer, [
+                                    new Renderable(gl, renderer.attributes, cube),
+                                    new Renderable(gl, renderer.attributes, tetrahedron),
+                                    new Renderable(gl, renderer.attributes, uvSphere(16, 16))], configuration);
+                            requestAnimationFrame(webGl.render.bind(webGl));
+                        })
                     })
                 })
             })
@@ -90,20 +81,21 @@ class WebGL {
         });
     }
 
-    constructor(gl, renderer, renderables) {
+    constructor(gl, renderer, renderables, configuration) {
         this.#gl = gl;
         this.#renderer = renderer;
         this.#renderables = renderables;
+        this.#configuration = configuration;
         this.#azimuth = 0.0;
         this.#elevation = 0.0;
-        this.#distance = WebGL.#DISTANCE_MAX;
+        this.#distance = this.#configuration.distance.max;
         this.#velocityAzimuth = 0.0;
         this.#velocityElevation = 0.0;
         this.#velocityDistance = 0.0;
         this.#rotation = 0.0;
         this.#time = 0;
-        this.#gl.clearColor(...WebGL.#CLEAR_COLOR);
-        this.#gl.clearDepth(WebGL.#CLEAR_DEPTH);
+        this.#gl.clearColor(...this.#configuration.clear.color);
+        this.#gl.clearDepth(this.#configuration.clear.depth);
         this.#gl.depthFunc(this.#gl.LEQUAL);
         this.#gl.enable(this.#gl.DEPTH_TEST);
         this.#gl.cullFace(this.#gl.BACK);
@@ -141,7 +133,8 @@ class WebGL {
     }
 
     set distance(distance) {
-        this.#distance = Math.min(Math.max(distance, WebGL.#DISTANCE_MIN), WebGL.#DISTANCE_MAX);
+        this.#distance = Math.min(Math.max(distance, this.#configuration.distance.min),
+                this.#configuration.distance.max);
         document.querySelector(WebGL.#SELECTOR_DISTANCE).firstChild.nodeValue = WebGL.#FORMAT_DISTANCE(this.#distance);
     }
 
@@ -167,22 +160,22 @@ class WebGL {
         if (event.type == Event.KEY_DOWN) {
             switch (event.code) {
             case KeyCode.ARROW_UP:
-                this.#velocityElevation = WebGL.#VELOCITY_ELEVATION;
+                this.#velocityElevation = this.#configuration.elevation;
                 break;
             case KeyCode.ARROW_DOWN:
-                this.#velocityElevation = -WebGL.#VELOCITY_ELEVATION;
+                this.#velocityElevation = -this.#configuration.elevation;
                 break;
             case KeyCode.ARROW_LEFT:
-                this.#velocityAzimuth = WebGL.#VELOCITY_AZIMUTH;
+                this.#velocityAzimuth = this.#configuration.azimuth;
                 break;
             case KeyCode.ARROW_RIGHT:
-                this.#velocityAzimuth = -WebGL.#VELOCITY_AZIMUTH;
+                this.#velocityAzimuth = -this.#configuration.azimuth;
                 break;
             case KeyCode.PAGE_UP:
-                this.#velocityDistance = WebGL.#VELOCITY_DISTANCE;
+                this.#velocityDistance = this.#configuration.distance.velocity;
                 break;
             case KeyCode.PAGE_DOWN:
-                this.#velocityDistance = -WebGL.#VELOCITY_DISTANCE;
+                this.#velocityDistance = -this.#configuration.distance.velocity;
                 break;
             }
         }
@@ -219,14 +212,15 @@ class WebGL {
         this.azimuth += this.#velocityAzimuth * dt;
         this.elevation += this.#velocityElevation * dt;
         this.distance += this.#velocityDistance * dt;
-        this.rotation += WebGL.#VELOCITY_ROTATION * dt;
+        this.rotation += this.#configuration.rotation * dt;
         this.#time = time;
     }
 
     get #projection() {
         const projection = mat4.create();
-        mat4.perspective(projection, WebGL.#FIELD_OF_VIEW, this.#gl.canvas.clientWidth / this.#gl.canvas.clientHeight,
-                WebGL.#Z_NEAR, WebGL.#Z_FAR);
+        mat4.perspective(projection, this.#configuration.projection.fieldOfView,
+                this.#gl.canvas.clientWidth / this.#gl.canvas.clientHeight,
+                this.#configuration.projection.z.near, this.#configuration.projection.z.far);
         return projection;
     }
 
