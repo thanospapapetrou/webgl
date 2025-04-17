@@ -19,8 +19,8 @@ class WebGL {
     static #SELECTOR_DISTANCE = 'span#distance';
     static #SELECTOR_ELEVATION = 'span#elevation';
     static #SELECTOR_FPS = 'span#fps';
-    static #SHADER_FRAGMENT = './glsl/fragment.glsl';
-    static #SHADER_VERTEX = './glsl/vertex.glsl';
+    static #SHADER_FRAGMENT = './glsl/shader.frag';
+    static #SHADER_VERTEX = './glsl/shader.vert';
     static #UNIFORMS = ['projection', 'camera', 'model', 'direction'];
     static #VELOCITY_AZIMUTH = 0.25 * Math.PI; // 0.125 Hz
     static #VELOCITY_DISTANCE = 10.0; // 10 m/s

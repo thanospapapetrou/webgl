@@ -1,5 +1,5 @@
 #version 300 es
-// TODO rename to frag
+
 precision lowp float;
 
 uniform vec3 direction;
