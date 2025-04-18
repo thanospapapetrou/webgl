@@ -46,8 +46,6 @@ class WebGL {
 
     static main() {
         // TODO
-        // resize
-        // viewport
         // textures
         // light
         WebGL.#load(WebGL.#SHADER_VERTEX).then((response) => response.text()).then((vertex) => {
